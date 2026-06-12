@@ -75,3 +75,22 @@
     .sw-cell-val   { font-size:22px; font-weight:700; }
     .sw-loading { text-align:center; padding:2rem; color:var(--muted); font-size:14px; }
     .sw-error   { text-align:center; padding:2rem; color:#A32D2D; font-size:14px; }
+/* 스마트폰 화면(가로 768px 이하)에서만 적용되는 스타일 */
+@media (max-width: 768px) {
+  /* 1. 각 권역을 감싸는 전체 상자의 여백과 크기 줄이기 */
+  .card, [class*="region"], [id*="region"] { 
+    padding: 10px 12px !important;    /* 상하좌우 내부 여백을 좁게 조절 */
+    margin-bottom: 0.8rem !important; /* 상자 사이의 간격을 줄여 스크롤 최소화 */
+  }
+
+  /* 2. 권역 이름(타이틀) 글자 크기 줄이기 */
+  .card-title, h2, h3 { 
+    font-size: 15px !important;       /* 글씨가 너무 크면 자리를 많이 차지하므로 축소 */
+  }
+
+  /* 3. 온도나 결과 텍스트 크기 및 여백 조절 */
+  .result-text, p { 
+    font-size: 13px !important; 
+    margin: 4px 0 !important; 
+  }
+}

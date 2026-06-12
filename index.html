@@ -413,13 +413,15 @@ window.addEventListener('load', () => {
 function ptyIcon(pty) { return {'0':'☀️','1':'🌧️','2':'🌨️','3':'❄️','4':'🌦️','5':'🌧️','6':'🌨️','7':'❄️'}[pty]??'🌡️'; }
 function ptyDesc(pty) { return {'0':'맑음','1':'비','2':'비/눈','3':'눈','4':'소나기','5':'빗방울','6':'빗방울+눈','7':'눈날림'}[pty]??'-'; }
 function tempMeta(t) {
-if (t >= 38) return { label: '옥외작업 중지', color: '#8B0000', bg: '#FDE8E8' }; // 진한 빨강
-if (t >= 35) return { label: '옥외작업 최소화', color: '#D94111', bg: '#FFF0EA' }; // 주황~빨강 사이
-if (t >= 33) return { label: '시간당 15분 휴식', color: '#C67A00', bg: '#FFF7E6' }; // 노랑~주황 사이 (가독성을 위해 약간 딥한 골드 느낌)
-if (t >= 31) return { label: '시간당 10분 휴식', color: '#2B7318', bg: '#EAF5E6' }; // 초록
+if (t >= 38) return { label: '옥외작업 중지', color: '#8B0000', bg: '#FDE8E8' };
+if (t >= 35) return { label: '옥외작업 최소화', color: '#D94111', bg: '#FFF0EA' };
+if (t >= 33) return { label: '시간당 15분 휴식', color: '#C67A00', bg: '#FFF7E6' };
+if (t >= 31) return { label: '시간당 10분 휴식', color: '#2B7318', bg: '#EAF5E6' };
 
-// 31도 미만일 경우 기본값 (기존 '선선함'이나 기본 상태로 처리)
-return { label: '보통', color: '#4A5568', bg: '#EDF2F7' };
+if (t >= 28) return { label: '따뜻함', color: '#3B6D11', bg: '#EAF3DE' };
+if (t >= 10) return { label: '선선함', color: '#185FA5', bg: '#E6F1FB' };
+if (t >= 0)  return { label: '쌀쌀함', color: '#534AB7', bg: '#EEEDFE' };
+return { label: '매우 추움', color: '#0C447C', bg: '#B5D4F4' };
 }
 function tempColor(t) {
   if (t>=35) return '#A32D2D'; if (t>=28) return '#BA7517';

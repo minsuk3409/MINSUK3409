@@ -1,228 +1,137 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>권역별 체감온도</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg: #f5f5f3;
-      --surface: #ffffff;
-      --border: rgba(0,0,0,0.1);
-      --text: #1a1a18;
-      --muted: #6b6b68;
-      --hint: #9b9b97;
-      --radius: 14px;
-      --radius-sm: 8px;
+      --bg: #f5f5f3; --surface: #fff; --border: rgba(0,0,0,0.1);
+      --text: #1a1a18; --muted: #6b6b68; --hint: #9b9b97;
+      --radius: 14px; --radius-sm: 8px;
     }
-
     @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1a1a18;
-        --surface: #252523;
-        --border: rgba(255,255,255,0.1);
-        --text: #f0efe8;
-        --muted: #9b9b97;
-        --hint: #6b6b68;
-      }
+      :root { --bg:#1a1a18; --surface:#252523; --border:rgba(255,255,255,0.1); --text:#f0efe8; --muted:#9b9b97; --hint:#6b6b68; }
     }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:2rem 1rem 4rem; }
+    .container { max-width:980px; margin:0 auto; }
+    header { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:1.75rem; }
+    header h1 { font-size:22px; font-weight:600; }
+    header p  { font-size:13px; color:var(--muted); margin-top:4px; }
+    .btn { font-size:13px; padding:8px 16px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; display:flex; align-items:center; gap:6px; transition:opacity .15s; }
+    .btn:hover { opacity:.7; } .btn:disabled { opacity:.4; cursor:not-allowed; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:14px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; transition:transform .15s; }
+    .card:hover { transform:translateY(-2px); }
+    .card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+    .region { font-size:15px; font-weight:600; }
+    .city   { font-size:12px; color:var(--muted); margin-top:2px; }
+    .weather-icon { font-size:26px; }
+    .divider { height:1px; background:var(--border); margin:12px 0; }
+    .temp-now-label { font-size:11px; color:var(--hint); margin-bottom:3px; }
+    .temp-now  { font-size:36px; font-weight:700; line-height:1; }
+    .temp-actual { font-size:12px; color:var(--muted); margin-top:4px; }
+    .temp-range { display:flex; gap:12px; margin-top:12px; }
+    .range-item { flex:1; }
+    .range-label { font-size:10px; color:var(--hint); margin-bottom:2px; }
+    .range-val   { font-size:17px; font-weight:600; }
+    .meta { display:flex; gap:10px; margin-top:12px; font-size:12px; color:var(--muted); }
+    .badge { display:inline-block; font-size:11px; font-weight:500; padding:3px 10px; border-radius:20px; margin-top:12px; }
+    .skeleton { background:var(--border); border-radius:var(--radius); height:210px; animation:pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .error-box { grid-column:1/-1; padding:3rem; text-align:center; color:var(--muted); font-size:15px; }
+    footer { margin-top:2.5rem; text-align:center; font-size:12px; color:var(--hint); line-height:1.8; }
+    footer a { color:var(--muted); }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 2rem 1rem 4rem;
-    }
-
-    .container { max-width: 860px; margin: 0 auto; }
-
-    header {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 1.75rem;
-    }
-
-    header h1 { font-size: 22px; font-weight: 600; }
-    header p  { font-size: 13px; color: var(--muted); margin-top: 4px; }
-
-    .refresh-btn {
-      font-size: 13px;
-      padding: 8px 16px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: opacity 0.15s;
-    }
-    .refresh-btn:hover { opacity: 0.7; }
-    .refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 14px;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.25rem;
-      transition: transform 0.15s;
-    }
-    .card:hover { transform: translateY(-2px); }
-
-    .card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 10px;
-    }
-    .region { font-size: 15px; font-weight: 600; }
-    .city   { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-    .weather-icon { font-size: 28px; line-height: 1; }
-
-    .divider {
-      height: 1px;
-      background: var(--border);
-      margin: 12px 0;
-    }
-
-    .temp-now-label { font-size: 11px; color: var(--hint); margin-bottom: 3px; }
-    .temp-now       { font-size: 36px; font-weight: 700; line-height: 1; }
-    .temp-actual    { font-size: 12px; color: var(--muted); margin-top: 4px; }
-
-    .temp-range {
-      display: flex;
-      gap: 12px;
-      margin-top: 12px;
-    }
-    .range-item { flex: 1; }
-    .range-label { font-size: 10px; color: var(--hint); margin-bottom: 2px; }
-    .range-val   { font-size: 17px; font-weight: 600; }
-
-    .meta {
-      display: flex;
-      gap: 10px;
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .badge {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 500;
-      padding: 3px 10px;
-      border-radius: 20px;
-      margin-top: 12px;
-    }
-
-    /* loading */
-    .skeleton {
-      background: var(--border);
-      border-radius: var(--radius);
-      height: 200px;
-      animation: pulse 1.4s ease-in-out infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-    .error-box {
-      grid-column: 1/-1;
-      padding: 3rem;
-      text-align: center;
-      color: var(--muted);
-      font-size: 15px;
-    }
-
-    footer {
-      margin-top: 2.5rem;
-      text-align: center;
-      font-size: 12px;
-      color: var(--hint);
-      line-height: 1.8;
-    }
-    footer a { color: var(--muted); }
+    /* API URL 설정 배너 */
+    #api-banner { background:#FAEEDA; border:1px solid #EF9F27; border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:1.5rem; font-size:13px; color:#633806; display:flex; align-items:center; gap:10px; }
+    #api-banner input { flex:1; font-size:13px; padding:6px 10px; border-radius:6px; border:1px solid #EF9F27; background:#fff; color:#1a1a18; }
+    #api-banner button { white-space:nowrap; font-size:13px; padding:6px 14px; border-radius:6px; border:1px solid #BA7517; background:#BA7517; color:#fff; cursor:pointer; }
   </style>
 </head>
 <body>
 <div class="container">
+
+  <!-- Vercel URL 설정 배너 -->
+  <div id="api-banner">
+    ⚙️ Vercel API URL 입력:
+    <input type="text" id="api-url-input" placeholder="https://your-project.vercel.app" value=""/>
+    <button onclick="saveApiUrl()">저장</button>
+  </div>
+
   <header>
     <div>
       <h1>🌡️ 권역별 체감온도</h1>
       <p id="updated">불러오는 중...</p>
     </div>
-    <button class="refresh-btn" id="refreshBtn" onclick="loadAll()">
-      ↻ 새로고침
-    </button>
+    <button class="btn" id="refreshBtn" onclick="loadAll()">↻ 새로고침</button>
   </header>
 
   <div class="grid" id="grid"></div>
 
   <footer>
-    날씨 데이터 제공: <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> (무료 오픈소스 기상 API)<br>
-    체감온도 = 기온·풍속·습도를 반영한 인체 체감 기준 온도<br>
-    매 페이지 로드 시 실시간으로 불러옵니다.
+    날씨 데이터: <a href="https://www.kma.go.kr" target="_blank">기상청 단기예보 API</a> ·
+    API 프록시: <a href="https://vercel.com" target="_blank">Vercel 서버리스</a><br>
+    체감온도 = 기온·풍속·습도 기반 계산 (기상청 공식 적용)<br>
+    매 페이지 로드 시 실시간 갱신
   </footer>
 </div>
 
 <script>
+// ── 권역 목록 (기상청 격자 nx/ny 좌표) ──────────────────────────────
 const REGIONS = [
-  { name: '서울·수도권', city: '서울', lat: 37.5665, lon: 126.9780 },
-  { name: '경기',        city: '수원', lat: 37.2636, lon: 127.0286 },
-  { name: '충청',        city: '대전', lat: 36.3504, lon: 127.3845 },
-  { name: '전라',        city: '광주', lat: 35.1595, lon: 126.8526 },
-  { name: '경상',        city: '대구', lat: 35.8714, lon: 128.6014 },
-  { name: '강원',        city: '춘천', lat: 37.8747, lon: 127.7342 },
-  { name: '제주',        city: '제주', lat: 33.4996, lon: 126.5312 },
+  { name:'서울',   city:'서울',   nx:60, ny:127 },
+  { name:'경기',   city:'수원',   nx:60, ny:121 },
+  { name:'충남',   city:'대전',   nx:67, ny:100 },
+  { name:'충북',   city:'청주',   nx:69, ny:107 },
+  { name:'전북',   city:'전주',   nx:63, ny:89  },
+  { name:'전남',   city:'광주',   nx:58, ny:74  },
+  { name:'강원',   city:'춘천',   nx:73, ny:134 },
+  { name:'경북',   city:'대구',   nx:89, ny:90  },
+  { name:'경남',   city:'부산',   nx:98, ny:76  },
+  { name:'제주',   city:'제주',   nx:52, ny:38  },
 ];
 
-function wmoIcon(code, isDay) {
-  if (code === 0)  return isDay ? '☀️' : '🌙';
-  if (code <= 2)   return isDay ? '⛅' : '🌥️';
-  if (code === 3)  return '☁️';
-  if (code <= 49)  return '🌫️';
-  if (code <= 59)  return '🌦️';
-  if (code <= 69)  return '🌧️';
-  if (code <= 79)  return '🌨️';
-  if (code <= 84)  return '🌦️';
-  if (code <= 99)  return '⛈️';
-  return '🌡️';
+// ── API URL (Vercel 배포 후 입력) ────────────────────────────────────
+function getApiBase() {
+  return localStorage.getItem('vercel_api_url') || '';
 }
-
-function wmoDesc(code) {
-  if (code === 0)  return '맑음';
-  if (code <= 2)   return '구름 조금';
-  if (code === 3)  return '흐림';
-  if (code <= 49)  return '안개';
-  if (code <= 59)  return '이슬비';
-  if (code <= 69)  return '비';
-  if (code <= 79)  return '눈';
-  if (code <= 84)  return '소나기';
-  if (code <= 99)  return '뇌우';
-  return '-';
+function saveApiUrl() {
+  const val = document.getElementById('api-url-input').value.trim().replace(/\/$/, '');
+  if (val) {
+    localStorage.setItem('vercel_api_url', val);
+    document.getElementById('api-banner').style.background = '#EAF3DE';
+    document.getElementById('api-banner').style.borderColor = '#639922';
+    document.getElementById('api-banner').style.color = '#27500A';
+    loadAll();
+  }
 }
+window.addEventListener('load', () => {
+  const saved = getApiBase();
+  if (saved) {
+    document.getElementById('api-url-input').value = saved;
+    document.getElementById('api-banner').style.background = '#EAF3DE';
+    document.getElementById('api-banner').style.borderColor = '#639922';
+    document.getElementById('api-banner').style.color = '#27500A';
+  }
+});
 
+// ── 날씨 상태 ────────────────────────────────────────────────────────
+function ptyIcon(pty) {
+  return { '0':'☀️','1':'🌧️','2':'🌨️','3':'❄️','4':'🌦️','5':'🌧️','6':'🌨️','7':'❄️' }[pty] ?? '🌡️';
+}
+function ptyDesc(pty) {
+  return { '0':'맑음','1':'비','2':'비/눈','3':'눈','4':'소나기','5':'빗방울','6':'빗방울+눈','7':'눈날림' }[pty] ?? '-';
+}
 function tempMeta(t) {
-  if (t >= 35) return { label: '매우 더움', color: '#A32D2D', bg: '#FCEBEB' };
-  if (t >= 28) return { label: '더움',      color: '#854F0B', bg: '#FAEEDA' };
-  if (t >= 20) return { label: '따뜻함',    color: '#3B6D11', bg: '#EAF3DE' };
-  if (t >= 10) return { label: '선선함',    color: '#185FA5', bg: '#E6F1FB' };
-  if (t >= 0)  return { label: '쌀쌀함',    color: '#534AB7', bg: '#EEEDFE' };
-  return         { label: '매우 춥',      color: '#0C447C', bg: '#B5D4F4' };
+  if (t >= 35) return { label:'매우 더움', color:'#A32D2D', bg:'#FCEBEB' };
+  if (t >= 28) return { label:'더움',      color:'#854F0B', bg:'#FAEEDA' };
+  if (t >= 20) return { label:'따뜻함',    color:'#3B6D11', bg:'#EAF3DE' };
+  if (t >= 10) return { label:'선선함',    color:'#185FA5', bg:'#E6F1FB' };
+  if (t >= 0)  return { label:'쌀쌀함',    color:'#534AB7', bg:'#EEEDFE' };
+  return               { label:'매우 추움', color:'#0C447C', bg:'#B5D4F4' };
 }
-
 function tempColor(t) {
   if (t >= 35) return '#A32D2D';
   if (t >= 28) return '#BA7517';
@@ -232,37 +141,26 @@ function tempColor(t) {
   return '#0C447C';
 }
 
-async function fetchOne(r) {
-  const url = `https://api.open-meteo.com/v1/forecast`
-    + `?latitude=${r.lat}&longitude=${r.lon}`
-    + `&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day`
-    + `&daily=apparent_temperature_max,apparent_temperature_min`
-    + `&timezone=Asia%2FSeoul&forecast_days=1`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('fetch failed');
-  return res.json();
+// ── 데이터 fetch ─────────────────────────────────────────────────────
+async function fetchRegion(r) {
+  const base = getApiBase();
+  if (!base) return null;
+  const [cur, fcst] = await Promise.all([
+    fetch(`${base}/api/weather?nx=${r.nx}&ny=${r.ny}&type=current`).then(r => r.json()),
+    fetch(`${base}/api/weather?nx=${r.nx}&ny=${r.ny}&type=forecast`).then(r => r.json()),
+  ]);
+  return { cur, fcst };
 }
 
-function renderSkeleton() {
-  const grid = document.getElementById('grid');
-  grid.innerHTML = REGIONS.map(() =>
-    `<div class="skeleton"></div>`
-  ).join('');
-}
-
+// ── 카드 렌더 ────────────────────────────────────────────────────────
 function renderCard(r, data) {
-  const c   = data.current;
-  const d   = data.daily;
-  const feels    = Math.round(c.apparent_temperature);
-  const actual   = Math.round(c.temperature_2m);
-  const humidity = Math.round(c.relative_humidity_2m);
-  const wind     = Math.round(c.wind_speed_10m * 10) / 10;
-  const feelsMax = Math.round(d.apparent_temperature_max[0]);
-  const feelsMin = Math.round(d.apparent_temperature_min[0]);
-  const icon     = wmoIcon(c.weather_code, c.is_day);
-  const desc     = wmoDesc(c.weather_code);
-  const meta     = tempMeta(feels);
-
+  if (!data) {
+    return `<div class="card" style="opacity:.5;display:flex;align-items:center;justify-content:center;height:210px;">
+      <span style="font-size:13px;color:var(--muted)">API URL을 먼저 설정해주세요</span></div>`;
+  }
+  const { cur, fcst } = data;
+  const feels  = cur.feelsLike ?? cur.temp;
+  const meta   = tempMeta(feels);
   return `
     <div class="card">
       <div class="card-top">
@@ -270,58 +168,43 @@ function renderCard(r, data) {
           <div class="region">${r.name}</div>
           <div class="city">${r.city} 기준</div>
         </div>
-        <div class="weather-icon">${icon}</div>
+        <div class="weather-icon">${ptyIcon(cur.pty)}</div>
       </div>
-
       <div class="temp-now-label">현재 체감온도</div>
       <div class="temp-now" style="color:${meta.color}">${feels}°C</div>
-      <div class="temp-actual">실제 기온 ${actual}°C · ${desc}</div>
-
+      <div class="temp-actual">실제 기온 ${cur.temp}°C · ${ptyDesc(cur.pty)}</div>
       <div class="divider"></div>
-
       <div class="temp-range">
         <div class="range-item">
           <div class="range-label">오늘 최고 체감</div>
-          <div class="range-val" style="color:${tempColor(feelsMax)}">${feelsMax}°</div>
+          <div class="range-val" style="color:${tempColor(fcst.feelsMax ?? 0)}">${fcst.feelsMax ?? '-'}°</div>
         </div>
         <div class="range-item">
           <div class="range-label">오늘 최저 체감</div>
-          <div class="range-val" style="color:${tempColor(feelsMin)}">${feelsMin}°</div>
+          <div class="range-val" style="color:${tempColor(fcst.feelsMin ?? 0)}">${fcst.feelsMin ?? '-'}°</div>
         </div>
       </div>
-
       <div class="meta">
-        <span>💧 ${humidity}%</span>
-        <span>💨 ${wind}m/s</span>
+        <span>💧 ${cur.humidity}%</span>
+        <span>💨 ${cur.wind}m/s</span>
       </div>
-
-      <span class="badge" style="color:${meta.color}; background:${meta.bg}">${meta.label}</span>
-    </div>
-  `;
+      <span class="badge" style="color:${meta.color};background:${meta.bg}">${meta.label}</span>
+    </div>`;
 }
 
 async function loadAll() {
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;
-  renderSkeleton();
+  document.getElementById('grid').innerHTML = REGIONS.map(() => `<div class="skeleton"></div>`).join('');
   document.getElementById('updated').textContent = '불러오는 중...';
-
   try {
-    const results = await Promise.all(REGIONS.map(r =>
-      fetchOne(r).then(data => ({ r, data }))
-    ));
-
-    const grid = document.getElementById('grid');
-    grid.innerHTML = results.map(({ r, data }) => renderCard(r, data)).join('');
-
+    const results = await Promise.all(REGIONS.map(r => fetchRegion(r)));
+    document.getElementById('grid').innerHTML = REGIONS.map((r, i) => renderCard(r, results[i])).join('');
     const now = new Date();
     document.getElementById('updated').textContent =
-      `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 `
-      + `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} 기준`;
-  } catch (e) {
-    document.getElementById('grid').innerHTML =
-      `<div class="error-box">⚠️ 데이터를 불러오지 못했습니다.<br>잠시 후 새로고침 해주세요.</div>`;
-    document.getElementById('updated').textContent = '불러오기 실패';
+      `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} 기준`;
+  } catch(e) {
+    document.getElementById('grid').innerHTML = `<div class="error-box">⚠️ 데이터를 불러오지 못했습니다.<br>${e.message}</div>`;
   } finally {
     btn.disabled = false;
   }

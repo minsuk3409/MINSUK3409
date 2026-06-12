@@ -1,0 +1,150 @@
+
+<style>
+  .region-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; transition: border-color 0.15s; }
+  .region-card:hover { border-color: var(--color-border-secondary); }
+  .region-name { font-size: 14px; font-weight: 500; color: var(--color-text-secondary); margin: 0 0 4px; }
+  .city-name { font-size: 12px; color: var(--color-text-tertiary); margin: 0 0 12px; }
+  .temp-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+  .temp-label { font-size: 11px; color: var(--color-text-tertiary); min-width: 36px; }
+  .temp-val { font-size: 22px; font-weight: 500; }
+  .temp-val.max { font-size: 15px; }
+  .weather-icon { font-size: 20px; margin-bottom: 8px; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: var(--border-radius-md); display: inline-block; margin-top: 6px; }
+  .badge.hot { background: #FAEEDA; color: #854F0B; }
+  .badge.warm { background: #EAF3DE; color: #3B6D11; }
+  .badge.cool { background: #E6F1FB; color: #185FA5; }
+  .badge.cold { background: #EEEDFE; color: #534AB7; }
+  .badge.veryhot { background: #FCEBEB; color: #A32D2D; }
+  .loading-text { color: var(--color-text-tertiary); font-size: 13px; }
+  .error-text { color: var(--color-text-danger); font-size: 13px; }
+  .updated-at { font-size: 12px; color: var(--color-text-tertiary); text-align: right; }
+  .humidity { font-size: 12px; color: var(--color-text-tertiary); margin-top: 4px; }
+</style>
+
+<h2 class="sr-only">한국 권역별 체감온도 현황</h2>
+
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
+  <div>
+    <p style="font-size:16px; font-weight:500; margin:0; color:var(--color-text-primary);">권역별 체감온도</p>
+    <p id="updated-at" class="updated-at" style="text-align:left;"></p>
+  </div>
+  <button onclick="loadAll()" style="font-size:13px; padding:6px 14px; display:flex; align-items:center; gap:6px;">
+    <i class="ti ti-refresh" aria-hidden="true"></i> 새로고침
+  </button>
+</div>
+
+<div id="grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px;">
+  <div class="loading-text" style="grid-column:1/-1; padding:2rem 0; text-align:center;">
+    <i class="ti ti-loader" aria-hidden="true"></i> 날씨 데이터 불러오는 중...
+  </div>
+</div>
+
+<script>
+const regions = [
+  { name: '수도권', city: '서울', lat: 37.5665, lon: 126.9780 },
+  { name: '강원권', city: '춘천', lat: 37.8747, lon: 127.7342 },
+  { name: '충청권', city: '대전', lat: 36.3504, lon: 127.3845 },
+  { name: '호남권', city: '광주', lat: 35.1595, lon: 126.8526 },
+  { name: '영남권', city: '대구', lat: 35.8714, lon: 128.6014 },
+  { name: '동남권', city: '부산', lat: 35.1796, lon: 129.0756 },
+  { name: '제주권', city: '제주', lat: 33.4996, lon: 126.5312 },
+];
+
+function getWmoIcon(code, isDay) {
+  if (code === 0) return isDay ? '☀️' : '🌙';
+  if (code <= 2) return isDay ? '⛅' : '🌥️';
+  if (code === 3) return '☁️';
+  if (code <= 49) return '🌫️';
+  if (code <= 59) return '🌦️';
+  if (code <= 69) return '🌧️';
+  if (code <= 79) return '🌨️';
+  if (code <= 84) return '🌦️';
+  if (code <= 99) return '⛈️';
+  return '🌡️';
+}
+
+function getWmoDesc(code) {
+  if (code === 0) return '맑음';
+  if (code <= 2) return '구름 조금';
+  if (code === 3) return '흐림';
+  if (code <= 49) return '안개';
+  if (code <= 59) return '이슬비';
+  if (code <= 69) return '비';
+  if (code <= 79) return '눈';
+  if (code <= 84) return '소나기';
+  if (code <= 99) return '뇌우';
+  return '-';
+}
+
+function feelsClass(t) {
+  if (t >= 33) return ['veryhot', '매우 더움'];
+  if (t >= 28) return ['hot', '더움'];
+  if (t >= 20) return ['warm', '따뜻함'];
+  if (t >= 10) return ['cool', '선선함'];
+  return ['cold', '쌀쌀함'];
+}
+
+function tempColor(t) {
+  if (t >= 33) return '#A32D2D';
+  if (t >= 28) return '#BA7517';
+  if (t >= 20) return '#3B6D11';
+  if (t >= 10) return '#185FA5';
+  return '#534AB7';
+}
+
+async function fetchRegion(r) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${r.lat}&longitude=${r.lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day&daily=apparent_temperature_max,apparent_temperature_min&timezone=Asia%2FSeoul&forecast_days=1`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return { region: r, data };
+}
+
+async function loadAll() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '<div class="loading-text" style="grid-column:1/-1; padding:2rem 0; text-align:center;"><i class="ti ti-loader" aria-hidden="true"></i> 날씨 데이터 불러오는 중...</div>';
+
+  try {
+    const results = await Promise.all(regions.map(fetchRegion));
+    grid.innerHTML = '';
+    results.forEach(({ region, data }) => {
+      const cur = data.current;
+      const daily = data.daily;
+      const feels = Math.round(cur.apparent_temperature);
+      const feelsMax = Math.round(daily.apparent_temperature_max[0]);
+      const feelsMin = Math.round(daily.apparent_temperature_min[0]);
+      const humidity = Math.round(cur.relative_humidity_2m);
+      const icon = getWmoIcon(cur.weather_code, cur.is_day);
+      const desc = getWmoDesc(cur.weather_code);
+      const [badgeClass, badgeLabel] = feelsClass(feels);
+      const color = tempColor(feels);
+
+      const card = document.createElement('div');
+      card.className = 'region-card';
+      card.innerHTML = `
+        <p class="region-name">${region.name}</p>
+        <p class="city-name">${region.city}</p>
+        <div class="weather-icon">${icon}</div>
+        <div class="temp-row">
+          <span class="temp-label">현재</span>
+          <span class="temp-val" style="color:${color}">${feels}°</span>
+        </div>
+        <div class="temp-row">
+          <span class="temp-label">최고/최저</span>
+          <span class="temp-val max" style="color:${tempColor(feelsMax)}">${feelsMax}°</span>
+          <span style="font-size:12px; color:var(--color-text-tertiary)">/ ${feelsMin}°</span>
+        </div>
+        <div class="humidity"><i class="ti ti-droplet" aria-hidden="true" style="font-size:13px; vertical-align:-1px;"></i> 습도 ${humidity}% · ${desc}</div>
+        <div><span class="badge ${badgeClass}">${badgeLabel}</span></div>
+      `;
+      grid.appendChild(card);
+    });
+
+    const now = new Date();
+    document.getElementById('updated-at').textContent = `${now.getMonth()+1}월 ${now.getDate()}일 ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')} 기준`;
+  } catch(e) {
+    grid.innerHTML = `<div class="error-text" style="grid-column:1/-1; padding:2rem 0; text-align:center;"><i class="ti ti-alert-circle" aria-hidden="true"></i> 데이터를 불러오지 못했습니다. 잠시 후 새로고침 해주세요.</div>`;
+  }
+}
+
+loadAll();
+</script>

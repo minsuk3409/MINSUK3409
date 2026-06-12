@@ -95,7 +95,7 @@ const REGIONS = [
 
 // ── API URL (Vercel 배포 후 입력) ────────────────────────────────────
 function getApiBase() {
-  return localStorage.getItem('vercel_api_url') || '';
+  return localStorage.getItem('vercel_api_url') || 'https://minsuk-3409.vercel.app';
 }
 function saveApiUrl() {
   const val = document.getElementById('api-url-input').value.trim().replace(/\/$/, '');

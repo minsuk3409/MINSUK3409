@@ -57,14 +57,9 @@ export default async function handler(req, res) {
       // alert.js — wrnLvl 필드 파싱 부분 수정
       const lvl = String(item.wrnLvl ?? item.wrn ?? '');
 
-      if (lvl.includes('중대경보')) {
-      alertType = 'critical';   // ← 신규 최상위 단계
-      break;
-      } else if (lvl.includes('경보')) {
-      alertType = 'warning';
-      } else if (lvl.includes('주의보')) {
-      alertType = 'watch';
-      }
+      if (lvl.includes('중대경보')) { alertType = 'critical'; break; }
+      else if (lvl.includes('경보')) { alertType = 'warning'; break; }
+      else if (lvl.includes('주의보')) { alertType = 'watch'; }
 
       // 반환값도 추가
       return res.status(200).json({ type: alertType });

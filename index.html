@@ -21,7 +21,89 @@
     </div>
     <button class="btn" id="refreshBtn" onclick="loadAll()">↻ 새로고침</button>
   </header>
+<div class="page-layout">
+
+  <!-- 좌측: 지도 -->
+  <div class="map-panel">
+    <div class="map-title">권역별 폭염특보 현황</div>
+    <svg id="korea-map" viewBox="0 0 260 400" width="260" height="400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="sel" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.25)"/>
+        </filter>
+      </defs>
+      <!-- 강원 -->
+      <path id="map-강원" class="region-area" onclick="highlightRegion('강원')"
+        d="M95,40 L175,40 L175,110 L140,115 L120,105 L95,100 Z"
+        fill="#E1F5EE" stroke="#fff" stroke-width="1.5"/>
+      <text x="135" y="80" text-anchor="middle" font-size="11" fill="#085041" font-weight="600">강원</text>
+      <!-- 경기 -->
+      <path id="map-경기" class="region-area" onclick="highlightRegion('경기')"
+        d="M60,65 L95,40 L95,100 L120,105 L110,130 L80,140 L60,130 L55,100 Z"
+        fill="#E1F5EE" stroke="#fff" stroke-width="1.5"/>
+      <text x="82" y="95" text-anchor="middle" font-size="11" fill="#085041" font-weight="600">경기</text>
+      <!-- 서울 -->
+      <path id="map-서울" class="region-area" onclick="highlightRegion('서울')"
+        d="M70,78 L90,72 L94,88 L78,94 Z"
+        fill="#0F6E56" stroke="#fff" stroke-width="1"/>
+      <text x="82" y="87" text-anchor="middle" font-size="8" fill="#fff" font-weight="600">서울</text>
+      <!-- 인천 -->
+      <path id="map-인천" class="region-area" onclick="highlightRegion('인천')"
+        d="M45,85 L62,80 L65,95 L52,102 L42,96 Z"
+        fill="#1D9E75" stroke="#fff" stroke-width="1"/>
+      <text x="53" y="93" text-anchor="middle" font-size="8" fill="#fff" font-weight="600">인천</text>
+      <!-- 충북 -->
+      <path id="map-충북" class="region-area" onclick="highlightRegion('충북')"
+        d="M110,130 L140,115 L155,140 L145,165 L120,165 L100,155 Z"
+        fill="#E1F5EE" stroke="#fff" stroke-width="1.5"/>
+      <text x="128" y="148" text-anchor="middle" font-size="11" fill="#085041" font-weight="600">충북</text>
+      <!-- 충남 -->
+      <path id="map-충남" class="region-area" onclick="highlightRegion('충남')"
+        d="M45,120 L80,140 L100,155 L90,185 L60,195 L35,175 L30,145 Z"
+        fill="#E1F5EE" stroke="#fff" stroke-width="1.5"/>
+      <text x="65" y="162" text-anchor="middle" font-size="11" fill="#085041" font-weight="600">충남</text>
+      <!-- 경북 -->
+      <path id="map-경북" class="region-area" onclick="highlightRegion('경북')"
+        d="M145,165 L175,110 L200,120 L210,160 L195,200 L165,210 L145,195 Z"
+        fill="#E1F5EE" stroke="#fff" stroke-width="1.5"/>
+      <text x="178" y="168" text-anchor="middle" font-size="11" fill="#085041" font-weight="600">경북</text>
+      <!-- 전북 -->
+      <path id="map-전북" class="region-area" onclick="highlightRegion('전북')"
+        d="M60,195 L90,185 L120,195 L115,225 L80,235 L50,220 Z"
+        fill="#E1F5EE" stroke="#fff" stroke-width="1.5"/>
+      <text x="85" y="213" text-anchor="middle" font-size="11" fill="#085041" font-weight="600">전북</text>
+      <!-- 경남 -->
+      <path id="map-경남" class="region-area" onclick="highlightRegion('경남')"
+        d="M145,195 L165,210 L195,200 L200,240 L175,265 L140,270 L115,255 L115,225 L130,210 Z"
+        fill="#E1F5EE" stroke="#fff" stroke-width="1.5"/>
+      <text x="158" y="235" text-anchor="middle" font-size="11" fill="#085041" font-weight="600">경남</text>
+      <!-- 전남 -->
+      <path id="map-전남" class="region-area" onclick="highlightRegion('전남')"
+        d="M50,220 L80,235 L115,225 L115,255 L95,275 L65,285 L35,265 L30,240 Z"
+        fill="#E1F5EE" stroke="#fff" stroke-width="1.5"/>
+      <text x="75" y="258" text-anchor="middle" font-size="11" fill="#085041" font-weight="600">전남</text>
+      <!-- 제주 -->
+      <ellipse id="map-제주" class="region-area" onclick="highlightRegion('제주')"
+        cx="90" cy="340" rx="40" ry="22"
+        fill="#E1F5EE" stroke="#fff" stroke-width="1.5"/>
+      <text x="90" y="344" text-anchor="middle" font-size="11" fill="#085041" font-weight="600">제주</text>
+      <!-- 바다 라벨 -->
+      <text x="20"  y="200" font-size="9" fill="#9b9b97" opacity="0.6">서해</text>
+      <text x="215" y="180" font-size="9" fill="#9b9b97" opacity="0.6">동해</text>
+      <text x="110" y="315" font-size="9" fill="#9b9b97" opacity="0.6">남해</text>
+    </svg>
+    <div class="map-legend">
+      <div class="legend-row"><div class="legend-dot" style="background:#E1F5EE;border:1px solid #9FE1CB"></div> 이상 없음</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#FFF3CD;border:1px solid #FFEAA7"></div> 폭염주의보</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#FFEAEA;border:1px solid #FFB3B3"></div> 폭염경보</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#F09595;border:1px solid #E24B4A"></div> 폭염중대경보</div>
+    </div>
+  </div>
+
+  <!-- 우측: 권역 카드 -->
   <div class="grid" id="grid"></div>
+
+</div>
   <footer>
     날씨 데이터: <a href="https://www.kma.go.kr" target="_blank">기상청 단기예보 API</a> ·
     폭염특보: <a href="https://www.kma.go.kr" target="_blank">기상청 특보 API</a> ·

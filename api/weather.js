@@ -2,145 +2,145 @@
 // 브라우저 → 이 함수 → 기상청 API (CORS 우회)
 
 export default async function handler(req, res) {
-  // CORS 허용 (내 GitHub Pages 도메인에서 호출 가능하게)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   const { nx, ny, type } = req.query;
-  // type: 'current' (초단기실황) or 'forecast' (단기예보)
+  const API_KEY = process.env.KMA_API_KEY;
 
-  const API_KEY = process.env.KMA_API_KEY; // Vercel 환경변수에서 가져옴
-
-  // 현재 시각 기반으로 발표시각 계산
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
   const pad = (n) => String(n).padStart(2, '0');
   
-  let baseDate = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-  let baseTime, endpoint;
-  let numOfRows = '100';
+  const todayStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
 
+  // 1. 단일 실시간 실황 요청 (?type=current)
   if (type === 'current') {
-    // 초단기실황: 매시 40분 이후 호출 가능, 정각 기준
     const hour = now.getMinutes() < 45 ? now.getHours() - 1 : now.getHours();
-    baseTime = `${pad(Math.max(hour, 0))}00`;
-    endpoint = 'getUltraSrtNcst';
-  } else {
-    // 단기예보: 0200,0500,0800,1100,1400,1700,2000,2300 발표
-    const FCST_TIMES = [2, 5, 8, 11, 14, 17, 20, 23];
-    const h = now.getHours();
+    const baseTime = `${pad(Math.max(hour, 0))}00`;
     
-    // 만약 현재 시각이 0시~1시 사이라면 baseDate는 어제가 되어야 23시 발표 데이터를 가져옴
-    if (h === 0 || (h === 1 && now.getMinutes() < 10)) {
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      baseDate = `${yesterday.getFullYear()}${pad(yesterday.getMonth() + 1)}${pad(yesterday.getDate())}`;
-      baseTime = '2300';
-    } else {
-      const latest = FCST_TIMES.filter(t => t <= h - 1).pop() ?? 23;
-      baseTime = `${pad(latest)}00`;
+    const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${API_KEY}&numOfRows=100&pageNo=1&dataType=JSON&base_date=${todayStr}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+    
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      const items = data?.response?.body?.items?.item ?? [];
+      
+      const find = (cat) => items.find(i => i.category === cat)?.obsrValue;
+      const temp = parseFloat(find('T1H') ?? 0);
+      const humidity = parseFloat(find('REH') ?? 0);
+      const wind = parseFloat(find('WSD') ?? 0);
+      const pty = find('PTY') ?? '0';
+
+      const feelsLike = calcFeelsLike(temp, humidity, wind);
+
+      return res.status(200).json({ temp, feelsLike, humidity, wind, pty, baseDate: todayStr, baseTime });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
     }
-    
-    endpoint = 'getVilageFcst';
-    numOfRows = '500'; // ★ 하루치 데이터(24시간 * 항목들)를 잘림 없이 다 가져오기 위해 크게 확장
   }
 
-  const url = new URL(
-    `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/${endpoint}`
-  );
-  url.searchParams.set('serviceKey', API_KEY);
-  url.searchParams.set('numOfRows', numOfRows);
-  url.searchParams.set('pageNo', '1');
-  url.searchParams.set('dataType', 'JSON');
-  url.searchParams.set('base_date', baseDate);
-  url.searchParams.set('base_time', baseTime);
-  url.searchParams.set('nx', nx);
-  url.searchParams.set('ny', ny);
-
+  // 2. [핵심] 오늘 전체 최고/최저 체감온도 요청 (?type=forecast)
+  // 예보 데이터(새벽 2시 발표)와 지금까지의 실제 실황 데이터를 모두 수집해 합산 연산합니다.
   try {
-    const response = await fetch(url.toString());
-    const data = await response.json();
+    const allFeelsLikeValues = [];
 
-    const items = data?.response?.body?.items?.item ?? [];
-
-    if (type === 'current') {
-      // 초단기실황: T1H(기온), REH(습도), WSD(풍속), PTY(강수형태)
-      const find = (cat) => items.find(i => i.category === cat)?.obsrValue;
-      const temp     = parseFloat(find('T1H') ?? 0);
-      const humidity = parseFloat(find('REH') ?? 0);
-      const wind     = parseFloat(find('WSD') ?? 0);
-      const pty      = find('PTY') ?? '0';
-
-      let feelsLike;
-      if (temp >= 10) {
-        const hi = -8.784695 + 1.61139411 * temp + 2.338549 * (humidity / 100)
-          - 0.14611605 * temp * (humidity / 100)
-          - 0.01230809 * (temp ** 2)
-          - 0.01642482 * ((humidity / 100) ** 2)
-          + 0.00221173 * (temp ** 2) * (humidity / 100)
-          + 0.00072546 * temp * ((humidity / 100) ** 2)
-          - 0.00000358 * (temp ** 2) * ((humidity / 100) ** 2);
-        feelsLike = hi > temp ? Math.round(hi * 10) / 10 : temp;
-      } else {
-        const v016 = Math.pow(wind * 3.6, 0.16);
-        feelsLike = Math.round((13.12 + 0.6215 * temp - 11.37 * v016 + 0.3965 * v016 * temp) * 10) / 10;
-      }
-
-      res.status(200).json({
-        temp,
-        feelsLike,
-        humidity,
-        wind,
-        pty,
-        baseDate,
-        baseTime,
-      });
-    } else {
-      // 단기예보: 오늘의 최고(TMX)/최저(TMN) 기온
-      // 항상 '오늘' 기준의 하루 최고/최저 체감온도를 구하기 위해 targetDate를 오늘 날짜로 명시
-      const targetDate = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-      
-      const tmx = items.find(i => i.category === 'TMX' && i.fcstDate === targetDate)?.fcstValue;
-      const tmn = items.find(i => i.category === 'TMN' && i.fcstDate === targetDate)?.fcstValue;
-
-      // 오늘 하루(00시~24시)에 해당하는 시간별 기온·풍속·습도 추출
-      const hourlyT   = items.filter(i => i.category === 'TMP'  && i.fcstDate === targetDate);
-      const hourlyW   = items.filter(i => i.category === 'WSD'  && i.fcstDate === targetDate);
-      const hourlyREH = items.filter(i => i.category === 'REH'  && i.fcstDate === targetDate);
-
-      let feelsMax = -999, feelsMin = 999;
-      hourlyT.forEach(t => {
-        const time = t.fcstTime;
-        const tmp  = parseFloat(t.fcstValue);
-        const wsd  = parseFloat(hourlyW.find(w => w.fcstTime === time)?.fcstValue ?? 1);
-        const reh  = parseFloat(hourlyREH.find(r => r.fcstTime === time)?.fcstValue ?? 60);
-        let fl;
-        if (tmp >= 10) {
-          const hi = -8.784695 + 1.61139411 * tmp + 2.338549 * (reh / 100)
-            - 0.14611605 * tmp * (reh / 100)
-            - 0.01230809 * (tmp ** 2)
-            - 0.01642482 * ((reh / 100) ** 2)
-            + 0.00221173 * (tmp ** 2) * (reh / 100)
-            + 0.00072546 * tmp * ((reh / 100) ** 2)
-            - 0.00000358 * (tmp ** 2) * ((reh / 100) ** 2);
-          fl = hi > tmp ? hi : tmp;
-        } else {
-          const v016 = Math.pow(wsd * 3.6, 0.16);
-          fl = 13.12 + 0.6215 * tmp - 11.37 * v016 + 0.3965 * v016 * tmp;
-        }
-        if (fl > feelsMax) feelsMax = fl;
-        if (fl < feelsMin) feelsMin = fl;
-      });
-
-      res.status(200).json({
-        tempMax: parseFloat(tmx ?? 0),
-        tempMin: parseFloat(tmn ?? 0),
-        feelsMax: feelsMax === -999 ? null : Math.round(feelsMax * 10) / 10,
-        feelsMin: feelsMin === 999  ? null : Math.round(feelsMin * 10) / 10,
-        baseDate,
-        baseTime,
-      });
+    // [파트 A] 오늘 새벽 2시 기준 하루 전체 예보 데이터 긁어오기
+    let fcstBaseDate = todayStr;
+    let fcstBaseTime = '0200';
+    
+    // 새벽 0시 ~ 2시 15분 사이 예외 처리 (어제 23시 예보 활용)
+    if (now.getHours() < 2 || (now.getHours() === 2 && now.getMinutes() < 15)) {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      fcstBaseDate = `${yesterday.getFullYear()}${pad(yesterday.getMonth() + 1)}${pad(yesterday.getDate())}`;
+      fcstBaseTime = '2300';
     }
+
+    const fcstUrl = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${API_KEY}&numOfRows=1000&pageNo=1&dataType=JSON&base_date=${fcstBaseDate}&base_time=${fcstBaseTime}&nx=${nx}&ny=${ny}`;
+    const fcstRes = await fetch(fcstUrl);
+    const fcstData = await fcstRes.json();
+    const fcstItems = fcstData?.response?.body?.items?.item ?? [];
+
+    const hourlyT = fcstItems.filter(i => i.category === 'TMP' && i.fcstDate === todayStr);
+    const hourlyW = fcstItems.filter(i => i.category === 'WSD' && i.fcstDate === todayStr);
+    const hourlyREH = fcstItems.filter(i => i.category === 'REH' && i.fcstDate === todayStr);
+
+    hourlyT.forEach(t => {
+      const time = t.fcstTime;
+      const tmp = parseFloat(t.fcstValue);
+      const wsd = parseFloat(hourlyW.find(w => w.fcstTime === time)?.fcstValue ?? 1);
+      const reh = parseFloat(hourlyREH.find(r => r.fcstTime === time)?.fcstValue ?? 60);
+      allFeelsLikeValues.push(calcFeelsLike(tmp, reh, wsd));
+    });
+
+    // [파트 B] 오늘 00시부터 현재 시간까지 매 시간 정시의 실제 [실황(실측) 데이터] 긁어와서 합치기
+    // 기상청 초단기실황 API를 현재 지나간 시간만큼 반복 호출하여 실측 체감온도를 확보합니다.
+    const currentHour = now.getHours();
+    const currentMin = now.getMinutes();
+    const limitHour = currentMin < 45 ? currentHour - 1 : currentHour; // 실황 반영 가능 시간 체크
+
+    const actualFetchPromises = [];
+    for (let h = 0; h <= limitHour; h++) {
+      const targetTime = `${pad(h)}00`;
+      const actualUrl = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=${API_KEY}&numOfRows=50&pageNo=1&dataType=JSON&base_date=${todayStr}&base_time=${targetTime}&nx=${nx}&ny=${ny}`;
+      
+      actualFetchPromises.push(
+        fetch(actualUrl)
+          .then(r => r.json())
+          .then(d => d?.response?.body?.items?.item ?? [])
+          .catch(() => [])
+      );
+    }
+
+    const actualResults = await Promise.all(actualFetchPromises);
+    actualResults.forEach(items => {
+      if (items.length > 0) {
+        const find = (cat) => items.find(i => i.category === cat)?.obsrValue;
+        const temp = parseFloat(find('T1H') ?? 0);
+        const humidity = parseFloat(find('REH') ?? 0);
+        const wind = parseFloat(find('WSD') ?? 0);
+        if (find('T1H') !== undefined) {
+          allFeelsLikeValues.push(calcFeelsLike(temp, humidity, wind));
+        }
+      }
+    });
+
+    // [마지막 단계] 예보값 + 오늘 실제 지나간 실황값 전체 중에서 진짜 최고/최저 추출
+    const feelsMax = allFeelsLikeValues.length ? Math.max(...allFeelsLikeValues) : null;
+    const feelsMin = allFeelsLikeValues.length ? Math.min(...allFeelsLikeValues) : null;
+
+    const tmx = fcstItems.find(i => i.category === 'TMX' && i.fcstDate === todayStr)?.fcstValue;
+    const tmn = items.find(i => i.category === 'TMN' && i.fcstDate === todayStr)?.fcstValue;
+
+    return res.status(200).json({
+      tempMax: parseFloat(tmx ?? 0),
+      tempMin: parseFloat(tmn ?? 0),
+      feelsMax: feelsMax ? Math.round(feelsMax * 10) / 10 : null,
+      feelsMin: feelsMin ? Math.round(feelsMin * 10) / 10 : null,
+      baseDate: todayStr,
+      baseTime: fcstBaseTime,
+    });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// 기상청 표준 체감온도 계산 함수 공통화
+function calcFeelsLike(temp, humidity, wind) {
+  if (temp >= 10) {
+    // 여름철 열지수 기반 체감온도 공식
+    const hi = -8.784695 + 1.61139411 * temp + 2.338549 * (humidity / 100)
+      - 0.14611605 * temp * (humidity / 100)
+      - 0.01230809 * (temp ** 2)
+      - 0.01642482 * ((humidity / 100) ** 2)
+      + 0.00221173 * (temp ** 2) * (humidity / 100)
+      + 0.00072546 * temp * ((humidity / 100) ** 2)
+      - 0.00000358 * (temp ** 2) * ((humidity / 100) ** 2);
+    return hi > temp ? hi : temp;
+  } else {
+    // 겨울철 체감온도 공식
+    const v016 = Math.pow(wind * 3.6, 0.16);
+    return 13.12 + 0.6215 * temp - 11.37 * v016 + 0.3965 * v016 * temp;
   }
 }

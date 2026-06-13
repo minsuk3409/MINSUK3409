@@ -370,11 +370,13 @@ async function fetchAlert(regionName) {
 }
 
 function renderAlertBadge(alertData, regionName) {
-  if (!alertData || alertData.type==='none' || !alertData.type)
+  if (!alertData || alertData.type === 'none' || !alertData.type)
     return `<span class="alert-badge alert-none" id="alert-${regionName}"></span>`;
-  if (alertData.type==='warning')
+  if (alertData.type === 'critical')
+    return `<span class="alert-badge alert-critical" id="alert-${regionName}">🚨 폭염중대경보 발효중</span>`;
+  if (alertData.type === 'warning')
     return `<span class="alert-badge alert-warn" id="alert-${regionName}">🔴 폭염경보 발효중</span>`;
-  if (alertData.type==='watch')
+  if (alertData.type === 'watch')
     return `<span class="alert-badge alert-watch" id="alert-${regionName}">🟡 폭염주의보 발효중</span>`;
   return `<span class="alert-badge alert-none" id="alert-${regionName}"></span>`;
 }

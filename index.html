@@ -471,16 +471,17 @@ function renderCard(r, data) {
   return `
     <div class="card" onclick="openModal('${r.name}')">
       <div class="card-top" style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:0px;">
-  <div>
-    <div class="region">${r.name}</div>
-    <div class="city">${r.city} 기준</div>
-  </div>
-  <div style="text-align:right;margin-top:42px;">
-    <div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0;">  
+        <div>
+          <div class="region">${r.name}</div>
+          <div class="city">${r.city} 기준</div>
+        </div>
+      <div style="text-align:right;margin-top:42px;">
+        <div>
       <div class="range-label">오늘 최고 체감</div>
       <div class="range-val" style="color:${tempColor(fcst.feelsMax??0)}">${fcst.feelsMax??'-'}°</div>
-    </div>
-    <div style="margin-top:4px;">
+       </div>
+      <div style="margin-top:4px;">
       <div class="range-label">오늘 최저 체감</div>
       <div class="range-val" style="color:${tempColor(fcst.feelsMin??0)}">${fcst.feelsMin??'-'}°</div>
     </div>

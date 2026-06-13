@@ -435,12 +435,17 @@ function tempColor(t) {
   if (t>=0)  return '#534AB7'; return '#0C447C';
 }
 
+// index.html 내부의 fetchWeather 함수를 아래와 같이 순차 체인 방식으로 수정합니다.
 async function fetchWeather(nx, ny) {
   const base = getApiBase();
-  const [cur, fcst] = await Promise.all([
-    fetch(`${base}/api/weather?nx=${nx}&ny=${ny}&type=current`).then(r=>r.json()),
-    fetch(`${base}/api/weather?nx=${nx}&ny=${ny}&type=forecast`).then(r=>r.json()),
-  ]);
+  
+  // 1. 실시간 초단기 실황 데이터부터 먼저 완벽히 로드합니다.
+  const cur = await fetch(`${base}/api/weather?nx=${nx}&ny=${ny}&type=current`).then(r => r.json());
+  
+  // 2. 실황 체감온도(feelsLike)가 잡혔다면, 단기예보 API 호출 주소 파라미터에 실시간 실측치를 함께 얹어 보냅니다.
+  const curFeels = cur.feelsLike ?? cur.temp;
+  const fcst = await fetch(`${base}/api/weather?nx=${nx}&ny=${ny}&type=forecast&curFeels=${curFeels}`).then(r => r.json());
+  
   return { cur, fcst };
 }
 

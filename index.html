@@ -535,6 +535,7 @@ async function loadAll() {
       const alertData = await fetchAlert(r.name).catch(()=>null);
       const el = document.getElementById(`alert-${r.name}`);
       if (el) { const tmp=document.createElement('div'); tmp.innerHTML=renderAlertBadge(alertData,r.name); el.replaceWith(tmp.firstElementChild); }
+      updateMapAlert(r.name, alertData?.type || 'none');  // ← 이 한 줄 추가
     });
   } catch(e) {
     document.getElementById('grid').innerHTML = `<div class="error-box">⚠️ 데이터를 불러오지 못했습니다.<br>${e.message}</div>`;
@@ -609,7 +610,94 @@ async function showSiteWeather(regionName, siteIndex) {
       </div>`;
   }
 }
+// ── 지도 관련 ─────────────────────────────────────────────────────────
+const REGION_NAME_MAP = {
+  '서울특별시':   '서울',
+  '인천광역시':   '인천',
+  '경기도':       '경기',
+  '강원도':       '강원',
+  '강원특별자치도': '강원',
+  '충청북도':     '충북',
+  '충청남도':     '충남',
+  '대전광역시':   '충남',
+  '세종특별자치시': '충남',
+  '전라북도':     '전북',
+  '전북특별자치도': '전북',
+  '전라남도':     '전남',
+  '광주광역시':   '전남',
+  '경상북도':     '경북',
+  '대구광역시':   '경북',
+  '경상남도':     '경남',
+  '부산광역시':   '경남',
+  '울산광역시':   '경남',
+  '제주특별자치도': '제주',
+};
 
+const ALERT_FILL = {
+  critical: '#F09595',
+  warning:  '#FFEAEA',
+  watch:    '#FFF3CD',
+  none:     '#E1F5EE',
+};
+const ALERT_STROKE = {
+  critical: '#E24B4A',
+  warning:  '#FFB3B3',
+  watch:    '#FFEAA7',
+  none:     '#9FE1CB',
+};
+
+let mapSvg = null;
+const regionAlertState = {};
+
+function initMap(geojson) {
+  const W = 260, H = 420;
+  const projection = d3.geoMercator().fitSize([W, H], geojson);
+  const path = d3.geoPath().projection(projection);
+
+  mapSvg = d3.select('#korea-map')
+    .append('svg')
+    .attr('width', W)
+    .attr('height', H)
+    .style('display', 'block');
+
+  mapSvg.selectAll('path')
+    .data(geojson.features)
+    .enter()
+    .append('path')
+    .attr('d', path)
+    .attr('fill', '#E1F5EE')
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 1.2)
+    .attr('cursor', 'pointer')
+    .attr('class', d => {
+      const rname = REGION_NAME_MAP[d.properties.name] || '';
+      return 'map-region region-' + rname;
+    })
+    .on('click', (event, d) => {
+      const rname = REGION_NAME_MAP[d.properties.name] || '';
+      if (rname) openModal(rname);
+    })
+    .on('mouseover', function() {
+      d3.select(this).attr('opacity', 0.75);
+    })
+    .on('mouseout', function() {
+      d3.select(this).attr('opacity', 1);
+    });
+}
+
+function updateMapAlert(regionName, alertType) {
+  regionAlertState[regionName] = alertType;
+  if (!mapSvg) return;
+  mapSvg.selectAll('.region-' + regionName)
+    .attr('fill',   ALERT_FILL[alertType]   || ALERT_FILL.none)
+    .attr('stroke', ALERT_STROKE[alertType] || ALERT_STROKE.none);
+}
+
+// GeoJSON 로드 (GitHub Pages 경로)
+fetch('./skorea_provinces_geo_simple.json')
+  .then(r => r.json())
+  .then(geojson => initMap(geojson))
+  .catch(err => console.warn('지도 로드 실패:', err));
 loadAll();
 </script>
 </body>

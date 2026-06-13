@@ -471,24 +471,24 @@ function renderCard(r, data) {
   return `
     <div class="card" onclick="openModal('${r.name}')">
       <div class="card-top" style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:0px;">
-        <div>
-          <div class="region">${r.name}</div>
-          <div class="city">${r.city} 기준</div>
-        </div>
-        <div style="text-align:right;">
-          <div>
-            <div class="range-label">오늘 최고 체감</div>
-            <div class="range-val" style="color:${tempColor(fcst.feelsMax??0)}">${fcst.feelsMax??'-'}°</div>
-          </div>
-          <div style="margin-top:4px;">
-            <div class="range-label">오늘 최저 체감</div>
-            <div class="range-val" style="color:${tempColor(fcst.feelsMin??0)}">${fcst.feelsMin??'-'}°</div>
-          </div>
-        </div>
-      </div>
-      <div class="temp-now-label">현재 체감온도</div>
-      <div class="temp-now" style="color:${meta.color}">${feels}°C</div>
-      <div class="temp-actual">실제 기온 ${cur.temp}°C · ${ptyDesc(cur.pty)}</div>
+  <div>
+    <div class="region">${r.name}</div>
+    <div class="city">${r.city} 기준</div>
+  </div>
+  <div style="text-align:right;margin-top:42px;">
+    <div>
+      <div class="range-label">오늘 최고 체감</div>
+      <div class="range-val" style="color:${tempColor(fcst.feelsMax??0)}">${fcst.feelsMax??'-'}°</div>
+    </div>
+    <div style="margin-top:4px;">
+      <div class="range-label">오늘 최저 체감</div>
+      <div class="range-val" style="color:${tempColor(fcst.feelsMin??0)}">${fcst.feelsMin??'-'}°</div>
+    </div>
+  </div>
+</div>
+<div class="temp-now-label">현재 체감온도</div>
+<div class="temp-now" style="color:${meta.color}">${feels}°C</div>
+<div class="temp-actual">실제 기온 ${cur.temp}°C · ${ptyDesc(cur.pty)}</div>
       <div class="divider"></div>
       <div class="meta"><span>💧 ${cur.humidity}%</span><span>💨 ${cur.wind}m/s</span></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">

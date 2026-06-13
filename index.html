@@ -515,7 +515,16 @@ async function loadAll() {
       const alertData = await fetchAlert(r.name).catch(()=>null);
       const el = document.getElementById(`alert-${r.name}`);
       if (el) { const tmp=document.createElement('div'); tmp.innerHTML=renderAlertBadge(alertData,r.name); el.replaceWith(tmp.firstElementChild); }
+      const mapEl = document.getElementById('map-' + r.name);
+      if (mapEl) {
+      const c = alertMapColor(alertData?.type);
+      mapEl.setAttribute('fill', c.fill);
+      const allTexts = document.querySelectorAll('#korea-map text');
+      allTexts.forEach(t => {
+      if (t.textContent.trim() === r.name) t.setAttribute('fill', c.text);
     });
+  }
+});
   } catch(e) {
     document.getElementById('grid').innerHTML = `<div class="error-box">⚠️ 데이터를 불러오지 못했습니다.<br>${e.message}</div>`;
   } finally { btn.disabled=false; }

@@ -22,7 +22,7 @@
     .city   { font-size:12px; color:var(--muted); margin-top:2px; }
     .weather-icon { font-size:26px; }
     .divider { height:1px; background:var(--border); margin:12px 0; }
-    .temp-now-label { font-size:11px; color:var(--hint); margin-bottom:3px; }
+    .temp-now-label { font-size:11px; color:var(--hint); margin-bottom:0px; }
     .temp-now  { font-size:36px; font-weight:700; line-height:1; }
     .temp-actual { font-size:12px; color:var(--muted); margin-top:4px; }
     .temp-range { display:flex; gap:12px; margin-top:12px; }

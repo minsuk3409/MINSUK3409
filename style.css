@@ -76,35 +76,18 @@
     .sw-cell-val   { font-size:22px; font-weight:700; }
     .sw-loading { text-align:center; padding:2rem; color:var(--muted); font-size:14px; }
     .sw-error   { text-align:center; padding:2rem; color:#A32D2D; font-size:14px; }
+
 .page-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
   gap: 20px;
   align-items: start;
 }
-.map-panel {
-  position: sticky;
-  top: 1rem;
-}
-.map-title {
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 10px;
-  font-weight: 500;
-}
-.map-legend {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-top: 10px;
-  font-size: 11px;
-  color: var(--muted);
-}
+.map-panel { position: sticky; top: 1rem; }
+.map-title { font-size: 12px; color: var(--muted); margin-bottom: 10px; font-weight: 500; }
+.map-legend { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; font-size: 11px; color: var(--muted); }
 .legend-row { display: flex; align-items: center; gap: 6px; }
 .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
-svg .region-area { cursor: pointer; transition: opacity .15s; }
-svg .region-area:hover { opacity: .8; }
-svg text { font-family: -apple-system, BlinkMacSystemFont, sans-serif; pointer-events: none; }
 @media (max-width: 768px) {
   .page-layout { grid-template-columns: 1fr; }
   .map-panel { position: static; }

@@ -470,9 +470,15 @@ function renderCard(r, data) {
       <span style="font-size:13px;color:var(--muted)">API URL을 먼저 설정해주세요</span>
       <div class="site-count">현장 ${siteCount}개</div>
     </div>`;
-  const {cur,fcst} = data;
-  const feels = cur.feelsLike??cur.temp;
+
+  const {cur, fcst} = data;
+  
+  // [실시간 실황 연동] cur 오브젝트에서 기상청 실시간 관측 실황 값을 직접 매칭합니다.
+  const feels = cur.feelsLike ?? cur.temp; // 실시간 체감온도
+  const actualTemp = cur.temp ?? '-';      // 실시간 실제 기온
+  
   const meta = tempMeta(feels);
+  
   return `
     <div class="card" onclick="openModal('${r.name}')">
 
@@ -482,7 +488,7 @@ function renderCard(r, data) {
           <div class="city">${r.city} 기준</div>
           <div class="temp-now-label" style="margin-top:4px;">현재 체감온도</div>
           <div class="temp-now" style="color:${meta.color}">${feels}°C</div>
-          <div class="temp-actual">실제 기온 ${cur.temp}°C · ${ptyDesc(cur.pty)}</div>
+          <div class="temp-actual">실제 기온 ${actualTemp}°C · ${ptyDesc(cur.pty)}</div>
         </div>
         <div style="text-align:right;">
           <div>

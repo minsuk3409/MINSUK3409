@@ -470,39 +470,25 @@ function renderCard(r, data) {
   const meta = tempMeta(feels);
   return `
     <div class="card" onclick="openModal('${r.name}')">
-
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div>
-          <div class="region">${r.name}</div>
-          <div class="city">${r.city} 기준</div>
-          <div class="temp-now-label" style="margin-top:4px;">현재 체감온도</div>
-          <div class="temp-now" style="color:${meta.color}">${feels}°C</div>
-          <div class="temp-actual">실제 기온 ${cur.temp}°C · ${ptyDesc(cur.pty)}</div>
-        </div>
-        <div style="text-align:right;">
-          <div>
-            <div class="range-label">오늘 최고 체감</div>
-            <div class="range-val" style="color:${tempColor(fcst.feelsMax??0)}">${fcst.feelsMax??'-'}°</div>
-          </div>
-          <div style="margin-top:4px;">
-            <div class="range-label">오늘 최저 체감</div>
-            <div class="range-val" style="color:${tempColor(fcst.feelsMin??0)}">${fcst.feelsMin??'-'}°</div>
-          </div>
-        </div>
+      <div class="card-top">
+        <div><div class="region">${r.name}</div><div class="city">${r.city} 기준</div></div>
+        <div class="weather-icon">${ptyIcon(cur.pty)}</div>
       </div>
-
+      <div class="temp-now-label">현재 체감온도</div>
+      <div class="temp-now" style="color:${meta.color}">${feels}°C</div>
+      <div class="temp-actual">실제 기온 ${cur.temp}°C · ${ptyDesc(cur.pty)}</div>
       <div class="divider"></div>
-      <div class="meta"><span>💧 ${cur.humidity}%</span><span>💨 ${cur.wind}m/s</span></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-        <div>
-          <span class="badge" style="margin-top:0;color:${meta.color};background:${meta.bg}">${meta.label}</span>
-          <span class="alert-badge alert-loading" id="alert-${r.name}" style="display:block;margin-top:6px;">특보 확인중…</span>
-        </div>
-        <div style="font-size:22px;line-height:1;">${ptyIcon(cur.pty)}</div>
+      <div class="temp-range">
+        <div class="range-item"><div class="range-label">오늘 최고 체감</div><div class="range-val" style="color:${tempColor(fcst.feelsMax??0)}">${fcst.feelsMax??'-'}°</div></div>
+        <div class="range-item"><div class="range-label">오늘 최저 체감</div><div class="range-val" style="color:${tempColor(fcst.feelsMin??0)}">${fcst.feelsMin??'-'}°</div></div>
       </div>
+      <div class="meta"><span>💧 ${cur.humidity}%</span><span>💨 ${cur.wind}m/s</span></div>
+      <span class="badge" style="color:${meta.color};background:${meta.bg}">${meta.label}</span>
+      <span class="alert-badge alert-loading" id="alert-${r.name}">특보 확인중…</span>
       <div class="site-count">현장 ${siteCount}개 ›</div>
     </div>`;
 }
+
 async function loadAll() {
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;

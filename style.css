@@ -77,20 +77,34 @@
     .sw-loading { text-align:center; padding:2rem; color:var(--muted); font-size:14px; }
     .sw-error   { text-align:center; padding:2rem; color:#A32D2D; font-size:14px; }
 
+/* PC 화면에서 좌우로 배치하기 위한 설정 */
 .page-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 20px;
-  align-items: start;
+  display: flex;
+  gap: 24px;          /* 지도와 카드 사이의 간격 */
+  align-items: flex-start;
 }
-.map-panel { position: sticky; top: 1rem; }
-.map-title { font-size: 12px; color: var(--muted); margin-bottom: 10px; font-weight: 500; }
-.map-legend { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; font-size: 11px; color: var(--muted); }
-.legend-row { display: flex; align-items: center; gap: 6px; }
-.legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+.map-panel {
+  flex: 0 0 260px;    /* 지도의 가로 폭을 260px로 고정 */
+  position: sticky;
+  top: 20px;          /* 스크롤 시 지도가 화면 상단에 고정되도록 설정 */
+}
+
+.grid {
+  flex: 1;            /* 나머지 오른쪽 우측 공간을 권역 카드가 다 차지하도록 설정 */
+}
+
+/* 📱 모바일 화면에서는 다시 위아래(세로)로 배치되도록 설정 */
 @media (max-width: 768px) {
-  .page-layout { grid-template-columns: 1fr; }
-  .map-panel { position: static; }
+  .page-layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .map-panel {
+    flex: 1 1 auto;
+    position: static;
+    margin: 0 auto;   /* 모바일에서는 지도가 가운데 정렬되도록 */
+  }
 }
 /* 스마트폰 화면(가로 768px 이하)에서만 적용되는 스타일 */
 @media (max-width: 768px) {

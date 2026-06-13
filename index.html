@@ -450,7 +450,12 @@ async function fetchAlert(regionName) {
     return await res.json();
   } catch { return null; }
 }
-
+function alertMapColor(a) {
+  if (a === 'critical') return { fill:'#F09595', text:'#501313' };
+  if (a === 'warning')  return { fill:'#FFEAEA', text:'#791F1F' };
+  if (a === 'watch')    return { fill:'#FFF3CD', text:'#856404' };
+  return { fill:'#E1F5EE', text:'#085041' };
+}
 function renderAlertBadge(alertData, regionName) {
   if (!alertData || alertData.type === 'none' || !alertData.type)
     return `<span class="alert-badge alert-none" id="alert-${regionName}"></span>`;

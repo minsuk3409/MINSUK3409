@@ -14,9 +14,10 @@ export default async function handler(req, res) {
   // 현재 시각 기반으로 발표시각 계산
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
   const pad = (n) => String(n).padStart(2, '0');
-  const baseDate = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-
+  
+  let baseDate = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
   let baseTime, endpoint;
+  let numOfRows = '100';
 
   if (type === 'current') {
     // 초단기실황: 매시 40분 이후 호출 가능, 정각 기준
@@ -27,16 +28,27 @@ export default async function handler(req, res) {
     // 단기예보: 0200,0500,0800,1100,1400,1700,2000,2300 발표
     const FCST_TIMES = [2, 5, 8, 11, 14, 17, 20, 23];
     const h = now.getHours();
-    const latest = FCST_TIMES.filter(t => t <= h - 1).pop() ?? 23;
-    baseTime = `${pad(latest)}00`;
+    
+    // 만약 현재 시각이 0시~1시 사이라면 baseDate는 어제가 되어야 23시 발표 데이터를 가져옴
+    if (h === 0 || (h === 1 && now.getMinutes() < 10)) {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      baseDate = `${yesterday.getFullYear()}${pad(yesterday.getMonth() + 1)}${pad(yesterday.getDate())}`;
+      baseTime = '2300';
+    } else {
+      const latest = FCST_TIMES.filter(t => t <= h - 1).pop() ?? 23;
+      baseTime = `${pad(latest)}00`;
+    }
+    
     endpoint = 'getVilageFcst';
+    numOfRows = '500'; // ★ 하루치 데이터(24시간 * 항목들)를 잘림 없이 다 가져오기 위해 크게 확장
   }
 
   const url = new URL(
     `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/${endpoint}`
   );
   url.searchParams.set('serviceKey', API_KEY);
-  url.searchParams.set('numOfRows', '100');
+  url.searchParams.set('numOfRows', numOfRows);
   url.searchParams.set('pageNo', '1');
   url.searchParams.set('dataType', 'JSON');
   url.searchParams.set('base_date', baseDate);
@@ -58,12 +70,8 @@ export default async function handler(req, res) {
       const wind     = parseFloat(find('WSD') ?? 0);
       const pty      = find('PTY') ?? '0';
 
-      // 체감온도 계산 (기상청 공식)
-      // 여름(기온 ≥ 10°C): 체감온도 = 기온 - (습도 효과 없이 풍속만 반영)
-      // 겨울(기온 < 10°C): 체감온도 = 13.12 + 0.6215T - 11.37V^0.16 + 0.3965V^0.16*T
       let feelsLike;
       if (temp >= 10) {
-        // 더운 날씨: 열체감온도 (Heat Index 기반, 간략화)
         const hi = -8.784695 + 1.61139411 * temp + 2.338549 * (humidity / 100)
           - 0.14611605 * temp * (humidity / 100)
           - 0.01230809 * (temp ** 2)
@@ -73,7 +81,6 @@ export default async function handler(req, res) {
           - 0.00000358 * (temp ** 2) * ((humidity / 100) ** 2);
         feelsLike = hi > temp ? Math.round(hi * 10) / 10 : temp;
       } else {
-        // 추운 날씨: 바람 체감온도 (Wind Chill)
         const v016 = Math.pow(wind * 3.6, 0.16);
         feelsLike = Math.round((13.12 + 0.6215 * temp - 11.37 * v016 + 0.3965 * v016 * temp) * 10) / 10;
       }
@@ -88,15 +95,17 @@ export default async function handler(req, res) {
         baseTime,
       });
     } else {
-      // 단기예보: 오늘의 최고(TMX)/최저(TMN) 기온, 하늘상태(SKY), 강수확률(POP)
-      const today = baseDate;
-      const tmx = items.find(i => i.category === 'TMX' && i.fcstDate === today)?.fcstValue;
-      const tmn = items.find(i => i.category === 'TMN' && i.fcstDate === today)?.fcstValue;
+      // 단기예보: 오늘의 최고(TMX)/최저(TMN) 기온
+      // 항상 '오늘' 기준의 하루 최고/최저 체감온도를 구하기 위해 targetDate를 오늘 날짜로 명시
+      const targetDate = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+      
+      const tmx = items.find(i => i.category === 'TMX' && i.fcstDate === targetDate)?.fcstValue;
+      const tmn = items.find(i => i.category === 'TMN' && i.fcstDate === targetDate)?.fcstValue;
 
-      // 시간별 기온·풍속으로 최고/최저 체감온도 추정
-      const hourlyT   = items.filter(i => i.category === 'TMP'  && i.fcstDate === today);
-      const hourlyW   = items.filter(i => i.category === 'WSD'  && i.fcstDate === today);
-      const hourlyREH = items.filter(i => i.category === 'REH'  && i.fcstDate === today);
+      // 오늘 하루(00시~24시)에 해당하는 시간별 기온·풍속·습도 추출
+      const hourlyT   = items.filter(i => i.category === 'TMP'  && i.fcstDate === targetDate);
+      const hourlyW   = items.filter(i => i.category === 'WSD'  && i.fcstDate === targetDate);
+      const hourlyREH = items.filter(i => i.category === 'REH'  && i.fcstDate === targetDate);
 
       let feelsMax = -999, feelsMin = 999;
       hourlyT.forEach(t => {

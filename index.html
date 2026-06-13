@@ -464,6 +464,17 @@ function renderAlertBadge(alertData, regionName) {
 }
 function renderCard(r, data) {
   const siteCount = (SITES[r.name]||[]).length;
+ if (!data) return `
+    <div class="card" onclick="openModal('${r.name}')" style="min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;opacity:.5;">
+      <div class="region">${r.name}</div>
+      <span style="font-size:13px;color:var(--muted)">API URL을 먼저 설정해주세요</span>
+      <div class="site-count">현장 ${siteCount}개</div>
+    </div>`;
+  const {cur,fcst} = data;
+  const feels = cur.feelsLike??cur.temp;
+  const meta = tempMeta(feels);
+  return `
+    <div class="card" onclick="openModal('${r.name}')">
 if (!data) {
     return `
       <div class="card" id="card-${r.name}">
@@ -476,6 +487,7 @@ if (!data) {
     `;
   }
 
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
   const { cur, fcst } = data;
   
   // 1. 실시간 실황 데이터 연동 (새로고침할 때마다 기상청 관측값 반영)
@@ -497,9 +509,18 @@ if (!data) {
     <div class="card" id="card-${r.name}" onclick="openModal('${r.name}')">
       <div class="card-header">
         <div>
+          <div class="region">${r.name}</div>
+          <div class="city">${r.city} 기준</div>
+          <div class="temp-now-label" style="margin-top:4px;">현재 체감온도</div>
+          <div class="temp-now" style="color:${meta.color}">${feels}°C</div>
+          <div class="temp-actual">실제 기온 ${cur.temp}°C · ${ptyDesc(cur.pty)}</div>
           <span class="region-name">${r.label}</span>
           <span class="grid-info">(${r.nx}, ${r.ny})</span>
         </div>
+        <div style="text-align:right;">
+          <div>
+            <div class="range-label">오늘 최고 체감</div>
+            <div class="range-val" style="color:${tempColor(fcst.feelsMax??0)}">${fcst.feelsMax??'-'}°</div>
         <span class="status-badge ${badgeClass}">${statusText}</span>
       </div>
       
@@ -510,11 +531,21 @@ if (!data) {
             <span class="temp-unit">°C</span>
             <div class="temp-label">현재 체감온도 (실황)</div>
           </div>
+          <div style="margin-top:4px;">
+            <div class="range-label">오늘 최저 체감</div>
+            <div class="range-val" style="color:${tempColor(fcst.feelsMin??0)}">${fcst.feelsMin??'-'}°</div>
           <div class="main-actual">
             <span>실제 기온: <strong>${currentTemp}°C</strong></span>
           </div>
         </div>
+      </div>
 
+      <div class="divider"></div>
+      <div class="meta"><span>💧 ${cur.humidity}%</span><span>💨 ${cur.wind}m/s</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+        <div>
+          <span class="badge" style="margin-top:0;color:${meta.color};background:${meta.bg}">${meta.label}</span>
+          <span class="alert-badge alert-loading" id="alert-${r.name}" style="display:block;margin-top:6px;">특보 확인중…</span>
         <hr style="border:0; border-top:1px solid var(--border); margin:12px 0;">
 
         <div class="range-zone" style="display: flex; justify-content: space-between; font-size: 13px;">
@@ -527,10 +558,12 @@ if (!data) {
             <span style="font-weight:600; color:${tempColor(todayMaxFeels)}">${todayMaxFeels}°C</span>
           </div>
         </div>
+        <div style="font-size:22px;line-height:1;">${ptyIcon(cur.pty)}</div>
       </div>
+      <div class="site-count">현장 ${siteCount}개 ›</div>
+    </div>`;
     </div>
   `;
-}
 async function loadAll() {
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;

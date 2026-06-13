@@ -5,6 +5,85 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link rel="icon" href="favicon.png" type="image/png">
   <title>권역별 체감온도</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f5f3; --surface: #fff; --border: rgba(0,0,0,0.1);
+      --text: #1a1a18; --muted: #6b6b68; --hint: #9b9b97;
+      --radius: 14px; --radius-sm: 8px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#1a1a18; --surface:#252523; --border:rgba(255,255,255,0.1); --text:#f0efe8; --muted:#9b9b97; --hint:#6b6b68; }
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:2rem 1rem 4rem; }
+    .container { max-width:980px; margin:0 auto; }
+    header { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:1.75rem; }
+    header h1 { font-size:22px; font-weight:600; }
+    header p  { font-size:13px; color:var(--muted); margin-top:4px; }
+    .btn { font-size:13px; padding:8px 16px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; display:flex; align-items:center; gap:6px; transition:opacity .15s; }
+    .btn:hover { opacity:.7; } .btn:disabled { opacity:.4; cursor:not-allowed; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:14px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; transition:transform .15s, box-shadow .15s; cursor:pointer; position:relative; }
+    .card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.08); }
+    .card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+    .region { font-size:15px; font-weight:600; }
+    .city   { font-size:12px; color:var(--muted); margin-top:2px; }
+    .weather-icon { font-size:26px; }
+    .divider { height:1px; background:var(--border); margin:12px 0; }
+    .temp-now-label { font-size:11px; color:var(--hint); margin-bottom:3px; }
+    .temp-now  { font-size:36px; font-weight:700; line-height:1; }
+    .temp-actual { font-size:12px; color:var(--muted); margin-top:4px; }
+    .temp-range { display:flex; gap:12px; margin-top:12px; }
+    .range-item { flex:1; }
+    .range-label { font-size:10px; color:var(--hint); margin-bottom:2px; }
+    .range-val   { font-size:17px; font-weight:600; }
+    .meta { display:flex; gap:10px; margin-top:12px; font-size:12px; color:var(--muted); }
+    .badge { display:inline-block; font-size:11px; font-weight:500; padding:3px 10px; border-radius:20px; margin-top:12px; }
+    .site-count { font-size:11px; color:var(--hint); margin-top:8px; }
+    .alert-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; margin-top:8px; }
+    .alert-watch  { background:#FFF3CD; color:#856404; border:1px solid #FFEAA7; }
+    .alert-warn   { background:#FFEAEA; color:#A32D2D; border:1px solid #FFB3B3; }
+    .alert-none   { display:none; }
+    .alert-loading { background:var(--border); color:var(--hint); border:none; }
+    .skeleton { background:var(--border); border-radius:var(--radius); height:230px; animation:pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .error-box { grid-column:1/-1; padding:3rem; text-align:center; color:var(--muted); font-size:15px; }
+    footer { margin-top:2.5rem; text-align:center; font-size:12px; color:var(--hint); line-height:1.8; }
+    footer a { color:var(--muted); }
+    #api-banner { background:#FAEEDA; border:1px solid #EF9F27; border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:1.5rem; font-size:13px; color:#633806; display:flex; align-items:center; gap:10px; flex-wrap:wrap; display: none !important; }
+    #api-banner input { flex:1; min-width:200px; font-size:13px; padding:6px 10px; border-radius:6px; border:1px solid #EF9F27; background:#fff; color:#1a1a18; }
+    #api-banner button { white-space:nowrap; font-size:13px; padding:6px 14px; border-radius:6px; border:1px solid #BA7517; background:#BA7517; color:#fff; cursor:pointer; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:100; display:flex; align-items:center; justify-content:center; padding:1rem; opacity:0; pointer-events:none; transition:opacity .2s; }
+    .modal-overlay.open { opacity:1; pointer-events:auto; }
+    .modal { background:var(--surface); border-radius:var(--radius); width:100%; max-width:560px; max-height:85vh; display:flex; flex-direction:column; transform:translateY(16px); transition:transform .2s; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+    .modal-overlay.open .modal { transform:translateY(0); }
+    .modal-header { padding:1.25rem 1.5rem 1rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+    .modal-header h2 { font-size:17px; font-weight:600; }
+    .modal-close { background:none; border:none; font-size:20px; color:var(--muted); cursor:pointer; line-height:1; padding:4px; }
+    .modal-close:hover { color:var(--text); }
+    .modal-body { overflow-y:auto; flex:1; }
+    .site-list { list-style:none; }
+    .site-item { padding:14px 1.5rem; border-bottom:1px solid var(--border); cursor:pointer; transition:background .12s; }
+    .site-item:last-child { border-bottom:none; }
+    .site-item:hover { background:rgba(0,0,0,0.03); }
+    @media (prefers-color-scheme:dark) { .site-item:hover { background:rgba(255,255,255,0.05); } }
+    .site-name { font-size:14px; font-weight:500; }
+    .site-addr { font-size:12px; color:var(--muted); margin-top:3px; }
+    .site-weather { padding:1.5rem; display:none; flex-direction:column; gap:12px; }
+    .site-weather.visible { display:flex; }
+    .back-btn { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); background:none; border:none; cursor:pointer; padding:0; margin-bottom:4px; }
+    .back-btn:hover { color:var(--text); }
+    .sw-name { font-size:18px; font-weight:700; }
+    .sw-addr { font-size:12px; color:var(--muted); margin-top:2px; }
+    .sw-big  { font-size:52px; font-weight:800; line-height:1; margin-top:12px; }
+    .sw-sub  { font-size:13px; color:var(--muted); margin-top:6px; }
+    .sw-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+    .sw-cell { background:var(--bg); border-radius:10px; padding:12px 14px; }
+    .sw-cell-label { font-size:11px; color:var(--hint); margin-bottom:4px; }
+    .sw-cell-val   { font-size:22px; font-weight:700; }
+    .sw-loading { text-align:center; padding:2rem; color:var(--muted); font-size:14px; }
+    .sw-error   { text-align:center; padding:2rem; color:#A32D2D; font-size:14px; }
+  </style>
 </head>
 <body>
 <div class="container">
@@ -20,27 +99,7 @@
     </div>
     <button class="btn" id="refreshBtn" onclick="loadAll()">↻ 새로고침</button>
   </header>
-<div class="page-layout">
-
-  <!-- 좌측: 지도 -->
-<div class="map-panel">
-  <div class="map-title">권역별 폭염특보 현황</div>
-
-  <!-- 지도가 들어갈 div -->
-  <div id="korea-map" style="width:280px; height:420px; border-radius:12px; overflow:hidden;"></div>
-
-  <div class="map-legend">
-    <div class="legend-row"><div class="legend-dot" style="background:#E1F5EE;border:1px solid #9FE1CB"></div> 특보 발효 없음</div>
-    <div class="legend-row"><div class="legend-dot" style="background:#FFF3CD;border:1px solid #FFEAA7"></div> 폭염주의보</div>
-    <div class="legend-row"><div class="legend-dot" style="background:#FFEAEA;border:1px solid #FFB3B3"></div> 폭염경보</div>
-    <div class="legend-row"><div class="legend-dot" style="background:#F09595;border:1px solid #E24B4A"></div> 폭염중대경보</div>
-  </div>
-</div>
-
-  <!-- 우측: 권역 카드 -->
   <div class="grid" id="grid"></div>
-
-</div>
   <footer>
     날씨 데이터: <a href="https://www.kma.go.kr" target="_blank">기상청 단기예보 API</a> ·
     폭염특보: <a href="https://www.kma.go.kr" target="_blank">기상청 특보 API</a> ·
@@ -361,7 +420,7 @@ if (t >= 31) return { label: '시간당 15분 휴식', color: '#2B7318', bg: '#E
 
 if (t >= 28) return { label: '더움', color: '#3B6D11', bg: '#EAF3DE' };
 if (t >= 25) return { label: '산뜻함', color: '#185FA5', bg: '#E6F1FB' };
-if (t >= 10)  return { label: '선선함', color: '#534AB7', bg: '#EEEDFE' };
+if (t >= 20)  return { label: '선선함', color: '#534AB7', bg: '#EEEDFE' };
 return { label: '매우 추움', color: '#0C447C', bg: '#B5D4F4' };
 }
 function tempColor(t) {
@@ -387,20 +446,13 @@ async function fetchAlert(regionName) {
     return await res.json();
   } catch { return null; }
 }
-function alertMapColor(a) {
-  if (a === 'critical') return { fill:'#F09595', text:'#501313' };
-  if (a === 'warning')  return { fill:'#FFEAEA', text:'#791F1F' };
-  if (a === 'watch')    return { fill:'#FFF3CD', text:'#856404' };
-  return { fill:'#E1F5EE', text:'#085041' };
-}
+
 function renderAlertBadge(alertData, regionName) {
-  if (!alertData || alertData.type === 'none' || !alertData.type)
+  if (!alertData || alertData.type==='none' || !alertData.type)
     return `<span class="alert-badge alert-none" id="alert-${regionName}"></span>`;
-  if (alertData.type === 'critical')
-    return `<span class="alert-badge alert-critical" id="alert-${regionName}">🚨 폭염중대경보 발효중</span>`;
-  if (alertData.type === 'warning')
+  if (alertData.type==='warning')
     return `<span class="alert-badge alert-warn" id="alert-${regionName}">🔴 폭염경보 발효중</span>`;
-  if (alertData.type === 'watch')
+  if (alertData.type==='watch')
     return `<span class="alert-badge alert-watch" id="alert-${regionName}">🟡 폭염주의보 발효중</span>`;
   return `<span class="alert-badge alert-none" id="alert-${regionName}"></span>`;
 }
@@ -452,16 +504,7 @@ async function loadAll() {
       const alertData = await fetchAlert(r.name).catch(()=>null);
       const el = document.getElementById(`alert-${r.name}`);
       if (el) { const tmp=document.createElement('div'); tmp.innerHTML=renderAlertBadge(alertData,r.name); el.replaceWith(tmp.firstElementChild); }
-      const mapEl = document.getElementById('map-' + r.name);
-      if (mapEl) {
-      const c = alertMapColor(alertData?.type);
-      mapEl.setAttribute('fill', c.fill);
-      const allTexts = document.querySelectorAll('#korea-map text');
-      allTexts.forEach(t => {
-      if (t.textContent.trim() === r.name) t.setAttribute('fill', c.text);
     });
-  }
-});
   } catch(e) {
     document.getElementById('grid').innerHTML = `<div class="error-box">⚠️ 데이터를 불러오지 못했습니다.<br>${e.message}</div>`;
   } finally { btn.disabled=false; }
@@ -535,6 +578,7 @@ async function showSiteWeather(regionName, siteIndex) {
       </div>`;
   }
 }
+
 loadAll();
 </script>
 </body>

@@ -111,3 +111,4 @@
     margin: 4px 0 !important; 
   }
 }
+#korea-map svg path { transition: fill .3s, opacity .15s; }

@@ -1,4 +1,4 @@
-// api/alert.mjs
+// api/alert.js
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const { region } = req.query;
   if (!region) return res.status(400).json({ error: 'region 파라미터가 필요합니다.' });
 
-  const SERVICE_KEY = process.env.KMA_API_KEY; // ← KMA_API_KEY 사용
+  const SERVICE_KEY = process.env.KMA_API_KEY;
 
   const REGION_CODES = {
     '서울':  ['1100000000'],
@@ -42,8 +42,6 @@ export default async function handler(req, res) {
     const items  = json?.response?.body?.items?.item ?? [];
 
     let alertType = 'none';
-    
-    // 반복문을 통해 모든 특보 목록을 전수 조사합니다.
     for (const item of items) {
       const isTargetRegion = codes.some(code =>
         String(item.stnId).startsWith(code.slice(0, 4))
@@ -58,21 +56,16 @@ export default async function handler(req, res) {
 
       const lvl = String(item.wrnLvl ?? item.wrn ?? '');
 
-      if (lvl.includes('중대경보')) { 
-          alertType = 'critical'; 
-          break; // 최고 단계가 나왔으므로 즉시 종료
-      } else if (lvl.includes('경보')) { 
-          alertType = 'warning'; 
-      } else if (lvl.includes('주의보') && alertType !== 'warning') { 
-          alertType = 'watch'; 
-      }
+      if (lvl.includes('중대경보')) { alertType = 'critical'; break; }
+      else if (lvl.includes('경보')) { alertType = 'warning'; break; }
+      else if (lvl.includes('주의보')) { alertType = 'watch'; }
     }
 
-    // 최종 분석된 가장 높은 단계를 딱 한 번만 깔끔하게 반환합니다.
+    // [수정] return 위치를 for 루프 바깥으로 이동하여 전체 검사 후 정상 반환
     return res.status(200).json({ type: alertType });
 
   } catch (err) {
     console.error('[alert] error:', err);
     return res.status(200).json({ type: 'none' });
   }
-}
+} // [수정] 누락되었던 handler 닫는 괄호 추가

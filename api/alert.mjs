@@ -1,4 +1,4 @@
-// api/alert.js
+// api/alert.mjs
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -42,6 +42,8 @@ export default async function handler(req, res) {
     const items  = json?.response?.body?.items?.item ?? [];
 
     let alertType = 'none';
+    
+    // 반복문을 통해 모든 특보 목록을 전수 조사합니다.
     for (const item of items) {
       const isTargetRegion = codes.some(code =>
         String(item.stnId).startsWith(code.slice(0, 4))
@@ -54,16 +56,20 @@ export default async function handler(req, res) {
       const isActive = !item.tmCn;
       if (!isActive) continue;
 
-      // alert.js — wrnLvl 필드 파싱 부분 수정
       const lvl = String(item.wrnLvl ?? item.wrn ?? '');
 
-      if (lvl.includes('중대경보')) { alertType = 'critical'; break; }
-      else if (lvl.includes('경보')) { alertType = 'warning'; break; }
-      else if (lvl.includes('주의보')) { alertType = 'watch'; }
+      if (lvl.includes('중대경보')) { 
+          alertType = 'critical'; 
+          break; // 최고 단계가 나왔으므로 즉시 종료
+      } else if (lvl.includes('경보')) { 
+          alertType = 'warning'; 
+      } else if (lvl.includes('주의보') && alertType !== 'warning') { 
+          alertType = 'watch'; 
+      }
+    }
 
-      // 반환값도 추가
-      return res.status(200).json({ type: alertType });
-      // type: 'none' | 'watch' | 'warning' | 'critical'
+    // 최종 분석된 가장 높은 단계를 딱 한 번만 깔끔하게 반환합니다.
+    return res.status(200).json({ type: alertType });
 
   } catch (err) {
     console.error('[alert] error:', err);

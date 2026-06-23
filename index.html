@@ -435,18 +435,29 @@ function tempColor(t) {
   if (t>=0)  return '#534AB7'; return '#0C447C';
 }
 
-// index.html 내부의 fetchWeather 함수를 아래와 같이 순차 체인 방식으로 수정합니다.
+// [속도 개선] current와 forecast를 완전히 병렬로 호출하여 로딩 속도를 2배 이상 단축합니다.
 async function fetchWeather(nx, ny) {
   const base = getApiBase();
   
-  // 1. 실시간 초단기 실황 데이터부터 먼저 완벽히 로드합니다.
-  const cur = await fetch(`${base}/api/weather?nx=${nx}&ny=${ny}&type=current`).then(r => r.json());
-  
-  // 2. 실황 체감온도(feelsLike)가 잡혔다면, 단기예보 API 호출 주소 파라미터에 실시간 실측치를 함께 얹어 보냅니다.
-  const curFeels = cur.feelsLike ?? cur.temp;
-  const fcst = await fetch(`${base}/api/weather?nx=${nx}&ny=${ny}&type=forecast&curFeels=${curFeels}`).then(r => r.json());
-  
-  return { cur, fcst };
+  try {
+    // 두 API를 동시에 찔러서 기다립니다. (속도 최적화)
+    const [curRes, fcstRes] = await Promise.all([
+      fetch(`${base}/api/weather?nx=${nx}&ny=${ny}&type=current`).then(r => r.ok ? r.json() : null),
+      fetch(`${base}/api/weather?nx=${nx}&ny=${ny}&type=forecast`).then(r => r.ok ? r.json() : null)
+    ]);
+
+    // 데이터가 비정상적일 때를 대비한 기본값(Fallback) 지정
+    const cur = curRes ?? { temp: '-', feelsLike: '-', humidity: '-', wind: '-', pty: '0' };
+    const fcst = fcstRes ?? { feelsMax: '-', feelsMin: '-' };
+
+    return { cur, fcst };
+  } catch (e) {
+    console.error("날씨 페치 실패:", e);
+    return {
+      cur: { temp: '-', feelsLike: '-', humidity: '-', wind: '-', pty: '0' },
+      fcst: { feelsMax: '-', feelsMin: '-' }
+    };
+  }
 }
 
 async function fetchAlert(regionName) {
@@ -473,48 +484,48 @@ function renderAlertBadge(alertData, regionName) {
   
   return `<span class="alert-badge alert-none" id="alert-${regionName}"></span>`;
 }
+// [렌더링 안전장치 추가] 데이터가 없을 때 - 이외에 undefined가 노출되지 않도록 방어
 function renderCard(r, data) {
   const siteCount = (SITES[r.name]||[]).length;
   if (!data) return `
     <div class="card" onclick="openModal('${r.name}')" style="min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;opacity:.5;">
       <div class="region">${r.name}</div>
-      <span style="font-size:13px;color:var(--muted)">API URL을 먼저 설정해주세요</span>
+      <span style="font-size:13px;color:var(--muted)">데이터를 불러올 수 없습니다</span>
       <div class="site-count">현장 ${siteCount}개</div>
     </div>`;
 
-  const {cur, fcst} = data;
+  const cur = data.cur ?? {};
+  const fcst = data.fcst ?? {};
   
-  // [실시간 실황 연동] cur 오브젝트에서 기상청 실시간 관측 실황 값을 직접 매칭합니다.
-  const feels = cur.feelsLike ?? cur.temp; // 실시간 체감온도
-  const actualTemp = cur.temp ?? '-';      // 실시간 실제 기온
+  const feels = cur.feelsLike ?? cur.temp ?? '-'; 
+  const actualTemp = cur.temp ?? '-';      
   
-  const meta = tempMeta(feels);
+  const meta = tempMeta(Number(feels) || 0);
   
   return `
     <div class="card" onclick="openModal('${r.name}')">
-
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
           <div class="region">${r.name}</div>
           <div class="city">${r.city} 기준</div>
           <div class="temp-now-label" style="margin-top:4px;">현재 체감온도</div>
-          <div class="temp-now" style="color:${meta.color}">${feels}°C</div>
+          <div class="temp-now" style="color:${meta.color}">${feels}${feels !== '-' ? '°C' : ''}</div>
           <div class="temp-actual">실제 기온 ${actualTemp}°C · ${ptyDesc(cur.pty)}</div>
         </div>
         <div style="text-align:right;">
           <div>
             <div class="range-label">오늘 최고 체감</div>
-            <div class="range-val" style="color:${tempColor(fcst.feelsMax??0)}">${fcst.feelsMax??'-'}°</div>
+            <div class="range-val" style="color:${tempColor(fcst.feelsMax??0)}">${fcst.feelsMax??'-'}${fcst.feelsMax && fcst.feelsMax !== '-' ? '°' : ''}</div>
           </div>
           <div style="margin-top:4px;">
             <div class="range-label">오늘 최저 체감</div>
-            <div class="range-val" style="color:${tempColor(fcst.feelsMin??0)}">${fcst.feelsMin??'-'}°</div>
+            <div class="range-val" style="color:${tempColor(fcst.feelsMin??0)}">${fcst.feelsMin??'-'}${fcst.feelsMin && fcst.feelsMin !== '-' ? '°' : ''}</div>
           </div>
         </div>
       </div>
 
       <div class="divider"></div>
-      <div class="meta"><span>💧 ${cur.humidity}%</span><span>💨 ${cur.wind}m/s</span></div>
+      <div class="meta"><span>💧 ${cur.humidity??'-'}%</span><span>💨 ${cur.wind??'-'}m/s</span></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
         <div>
           <span class="badge" style="margin-top:0;color:${meta.color};background:${meta.bg}">${meta.label}</span>

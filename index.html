@@ -736,11 +736,6 @@ function updateMapAlert(regionName, alertType) {
     .attr('stroke', ALERT_STROKE[alertType] || ALERT_STROKE.none);
 }
 
-// GeoJSON 로드 (GitHub Pages 경로)
-fetch('./skorea_provinces_geo_simple.json')
-  .then(r => r.json())
-  .then(geojson => initMap(geojson))
-  .catch(err => console.warn('지도 로드 실패:', err));
 loadAll();
 </script>
 </body>

@@ -100,7 +100,28 @@
     </div>
     <button class="btn" id="refreshBtn" onclick="loadAll()">↻ 새로고침</button>
   </header>
-<div class="page-layout">
+  <!-- 1. 전환 버튼 추가 -->
+  <div class="mode-toggle-container">
+  <button class="mode-btn active" id="btn-heatwave" onclick="switchView('heatwave')">
+    ☀️ 혹서기 전용 (체감온도·폭염)
+  </button>
+  <button class="mode-btn" id="btn-general" onclick="switchView('general')">
+    🌫️ 통합·동절기 (미세먼지·기상)
+  </button>
+</div>
+
+<!-- 2. 기존 화면(1번)을 view-heatwave 레이아웃으로 감싸기 -->
+<div id="view-heatwave" class="view-content active">
+  <div class="page-layout">
+    <div class="map-panel" id="korea-map"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<!-- 3. 새로 생성될 화면(2번) 구역 추가 -->
+<div id="view-general" class="view-content">
+  <div class="grid" id="grid-general"></div>
+</div>
 
   <!-- 우측: 권역 카드 -->
   <div class="grid" id="grid"></div>
@@ -735,7 +756,51 @@ function updateMapAlert(regionName, alertType) {
     .attr('fill',   ALERT_FILL[alertType]   || ALERT_FILL.none)
     .attr('stroke', ALERT_STROKE[alertType] || ALERT_STROKE.none);
 }
+// ── 화면 전환 (탭) 제어 함수 ──
+function switchView(viewName) {
+  // 버튼 스타일 변경
+  document.getElementById('btn-heatwave').classList.toggle('active', viewName === 'heatwave');
+  document.getElementById('btn-general').classList.toggle('active', viewName === 'general');
 
+  // 화면 보이기/숨기기
+  document.getElementById('view-heatwave').classList.toggle('active', viewName === 'heatwave');
+  document.getElementById('view-general').classList.toggle('active', viewName === 'general');
+
+  // 2번 화면 클릭 시 임시 카드목록 생성
+  if (viewName === 'general') {
+    loadGeneralView();
+  }
+}
+  // ── 2번 화면 테스트 렌더링 함수 ──
+function loadGeneralView() {
+  const container = document.getElementById('grid-general');
+  // 이미 생성되어 있다면 재생성 방지
+  if (container.children.length > 0) return;
+
+  container.innerHTML = REGIONS.map(r => `
+    <div class="card">
+      <div class="card-top">
+        <div>
+          <div class="region">${r.name}</div>
+          <div class="city">${r.city} 기준</div>
+        </div>
+        <span class="badge" style="background:#E6F1FB; color:#185FA5;">기타/동절기</span>
+      </div>
+      <div class="divider"></div>
+      <div class="general-metrics">
+        <div class="metric-item">
+          <span class="m-label">미세먼지(PM10)</span>
+          <span class="m-val" style="color:#2B7318">보통 (35 µg/m³)</span>
+        </div>
+        <div class="metric-item">
+          <span class="m-label">초미세먼지(PM2.5)</span>
+          <span class="m-val" style="color:#BA7517">나쁨 (42 µg/m³)</span>
+        </div>
+      </div>
+      <div class="site-count" style="margin-top:12px;">현장 ${(SITES[r.name]||[]).length}개 ›</div>
+    </div>
+  `).join('');
+}
 loadAll();
 </script>
 </body>

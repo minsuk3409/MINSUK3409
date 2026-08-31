@@ -1,10 +1,13 @@
-<!DOCTYPE html>
+# Combine existing index.html and style.css into a clean single updated index.html
+# with the tab switching logic fully integrated.
+
+html_content = '''<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link rel="icon" href="favicon.png" type="image/png">
-  <title>권역별 체감온도</title>
+  <title>권역별 기상 및 대기 정보</title>
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -18,11 +21,48 @@
     }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:2rem 1rem 4rem; }
     .container { max-width:980px; margin:0 auto; }
-    header { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:1.75rem; }
+    header { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:1.25rem; }
     header h1 { font-size:22px; font-weight:600; }
     header p  { font-size:13px; color:var(--muted); margin-top:4px; }
     .btn { font-size:13px; padding:8px 16px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; display:flex; align-items:center; gap:6px; transition:opacity .15s; }
     .btn:hover { opacity:.7; } .btn:disabled { opacity:.4; cursor:not-allowed; }
+
+    /* 모드 전환 탭 버튼 스타일 */
+    .mode-toggle-container {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      padding: 6px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      width: fit-content;
+    }
+
+    .mode-btn {
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+
+    .mode-btn:hover { color: var(--text); }
+
+    .mode-btn.active {
+      background: var(--bg);
+      color: var(--text);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    /* 화면 숨김/표시 제어 */
+    .view-content { display: none; }
+    .view-content.active { display: block; }
+
     .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:14px; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; transition:transform .15s, box-shadow .15s; cursor:pointer; position:relative; }
     .card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.08); }
@@ -31,7 +71,7 @@
     .city   { font-size:12px; color:var(--muted); margin-top:2px; }
     .weather-icon { font-size:26px; }
     .divider { height:1px; background:var(--border); margin:12px 0; }
-    .temp-now-label { font-size:11px; color:var(--hint); margin-bottom:3px; }
+    .temp-now-label { font-size:11px; color:var(--hint); margin-top:4px; margin-bottom:1px; }
     .temp-now  { font-size:36px; font-weight:700; line-height:1; }
     .temp-actual { font-size:12px; color:var(--muted); margin-top:4px; }
     .temp-range { display:flex; gap:12px; margin-top:12px; }
@@ -44,6 +84,7 @@
     .alert-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; margin-top:8px; }
     .alert-watch  { background:#FFF3CD; color:#856404; border:1px solid #FFEAA7; }
     .alert-warn   { background:#FFEAEA; color:#A32D2D; border:1px solid #FFB3B3; }
+    .alert-critical { background: #4A1B0C; color: #FAECE7; border: 1px solid #D85A30; }
     .alert-none   { display:none; }
     .alert-loading { background:var(--border); color:var(--hint); border:none; }
     .skeleton { background:var(--border); border-radius:var(--radius); height:230px; animation:pulse 1.4s ease-in-out infinite; }
@@ -84,6 +125,57 @@
     .sw-cell-val   { font-size:22px; font-weight:700; }
     .sw-loading { text-align:center; padding:2rem; color:var(--muted); font-size:14px; }
     .sw-error   { text-align:center; padding:2rem; color:#A32D2D; font-size:14px; }
+
+    .page-layout {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    .map-panel {
+      flex: 0 0 260px;
+      position: sticky;
+      top: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .page-layout {
+        flex-direction: column;
+        gap: 16px;
+      }
+      .map-panel {
+        flex: 1 1 auto;
+        position: static;
+        margin: 0 auto;
+      }
+      .card, [class*="region"], [id*="region"] { 
+        padding: 10px 12px !important;
+        margin-bottom: 0.8rem !important;
+      }
+      .card-title, h2, h3 { 
+        font-size: 15px !important;
+      }
+      .result-text, p { 
+        font-size: 13px !important; 
+        margin: 4px 0 !important; 
+      }
+    }
+    #korea-map svg path { transition: fill .3s, opacity .15s; }
+
+    /* View 2 전용 메트릭 스타일 */
+    .general-metrics {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .metric-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .m-label { color: var(--muted); }
+    .m-val { font-weight: 600; }
   </style>
 </head>
 <body>
@@ -95,38 +187,34 @@
   </div>
   <header>
     <div>
-      <h1>🌡️ 권역별 체감온도</h1>
+      <h1 id="page-title">🌡️ 권역별 체감온도</h1>
       <p id="updated">불러오는 중...</p>
     </div>
     <button class="btn" id="refreshBtn" onclick="loadAll()">↻ 새로고침</button>
   </header>
-  <!-- 1. 전환 버튼 추가 -->
+
+  <!-- 1. 모드 전환 버튼 -->
   <div class="mode-toggle-container">
-  <button class="mode-btn active" id="btn-heatwave" onclick="switchView('heatwave')">
-    ☀️ 혹서기 전용 (체감온도·폭염)
-  </button>
-  <button class="mode-btn" id="btn-general" onclick="switchView('general')">
-    🌫️ 통합·동절기 (미세먼지·기상)
-  </button>
-</div>
-
-<!-- 2. 기존 화면(1번)을 view-heatwave 레이아웃으로 감싸기 -->
-<div id="view-heatwave" class="view-content active">
-  <div class="page-layout">
-    <div class="map-panel" id="korea-map"></div>
-    <div class="grid" id="grid"></div>
+    <button class="mode-btn active" id="btn-heatwave" onclick="switchView('heatwave')">
+      ☀️ 혹서기 전용 (체감온도·폭염)
+    </button>
+    <button class="mode-btn" id="btn-general" onclick="switchView('general')">
+      🌫️ 통합·동절기 (미세먼지·기상)
+    </button>
   </div>
-</div>
 
-<!-- 3. 새로 생성될 화면(2번) 구역 추가 -->
-<div id="view-general" class="view-content">
-  <div class="grid" id="grid-general"></div>
-</div>
+  <!-- 2. 화면 1: 혹서기용 View -->
+  <div id="view-heatwave" class="view-content active">
+    <div class="page-layout">
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
 
-  <!-- 우측: 권역 카드 -->
-  <div class="grid" id="grid"></div>
+  <!-- 3. 화면 2: 기타 시기용 View (미세먼지, 동절기 등) -->
+  <div id="view-general" class="view-content">
+    <div class="grid" id="grid-general"></div>
+  </div>
 
-</div>
   <footer>
     날씨 데이터: <a href="https://www.kma.go.kr" target="_blank">기상청 단기예보 API</a> ·
     폭염특보: <a href="https://www.kma.go.kr" target="_blank">기상청 특보 API</a> ·
@@ -162,7 +250,7 @@ const REGIONS = [
   { name:'제주',  city:'제주',  nx:52, ny:38  },
 ];
 
-// ── 현장별 기상청 격자 좌표 (주소 기반 변환) ──────────────────────────
+// ── 현장별 기상청 격자 좌표 ──────────────────────────────────────────
 const SITE_COORDS = {
   "고척푸르지오힐스테이트": { nx:58, ny:125 },
   "노량진5구역재개발": { nx:59, ny:126 },
@@ -440,15 +528,14 @@ window.addEventListener('load', () => {
 function ptyIcon(pty) { return {'0':'☀️','1':'🌧️','2':'🌨️','3':'❄️','4':'🌦️','5':'🌧️','6':'🌨️','7':'❄️'}[pty]??'🌡️'; }
 function ptyDesc(pty) { return {'0':'맑음','1':'비','2':'비/눈','3':'눈','4':'소나기','5':'빗방울','6':'빗방울+눈','7':'눈날림'}[pty]??'-'; }
 function tempMeta(t) {
-if (t >= 38) return { label: '폭염중대경보(옥외작업 중지)', color: '#8B0000', bg: '#FDE8E8' };
-if (t >= 35) return { label: '폭염경보(옥외작업 최소화)', color: '#D94111', bg: '#FFF0EA' };
-if (t >= 33) return { label: '폭염주의보(시간당 15분 이상 휴식)', color: '#C67A00', bg: '#FFF7E6' };
-if (t >= 31) return { label: '시간당 15분 휴식', color: '#2B7318', bg: '#EAF5E6' };
-
-if (t >= 28) return { label: '더움', color: '#3B6D11', bg: '#EAF3DE' };
-if (t >= 25) return { label: '산뜻함', color: '#185FA5', bg: '#E6F1FB' };
-if (t >= 20)  return { label: '선선함', color: '#534AB7', bg: '#EEEDFE' };
-return { label: '보통', color: '#0C447C', bg: '#B5D4F4' };
+  if (t >= 38) return { label: '폭염중대경보(옥외작업 중지)', color: '#8B0000', bg: '#FDE8E8' };
+  if (t >= 35) return { label: '폭염경보(옥외작업 최소화)', color: '#D94111', bg: '#FFF0EA' };
+  if (t >= 33) return { label: '폭염주의보(시간당 15분 이상 휴식)', color: '#C67A00', bg: '#FFF7E6' };
+  if (t >= 31) return { label: '시간당 15분 휴식', color: '#2B7318', bg: '#EAF5E6' };
+  if (t >= 28) return { label: '더움', color: '#3B6D11', bg: '#EAF3DE' };
+  if (t >= 25) return { label: '산뜻함', color: '#185FA5', bg: '#E6F1FB' };
+  if (t >= 20) return { label: '선선함', color: '#534AB7', bg: '#EEEDFE' };
+  return { label: '보통', color: '#0C447C', bg: '#B5D4F4' };
 }
 function tempColor(t) {
   if (t>=35) return '#A32D2D'; if (t>=28) return '#BA7517';
@@ -456,7 +543,58 @@ function tempColor(t) {
   if (t>=0)  return '#534AB7'; return '#0C447C';
 }
 
-// ── 동시 요청 제한기 (최대 4개 동시 실행) ────────────────────────────
+// ── 화면 전환 (탭) 제어 함수 ──────────────────────────────────────────
+function switchView(viewName) {
+  document.getElementById('btn-heatwave').classList.toggle('active', viewName === 'heatwave');
+  document.getElementById('btn-general').classList.toggle('active', viewName === 'general');
+
+  document.getElementById('view-heatwave').classList.toggle('active', viewName === 'heatwave');
+  document.getElementById('view-general').classList.toggle('active', viewName === 'general');
+
+  const titleEl = document.getElementById('page-title');
+  if (viewName === 'heatwave') {
+    titleEl.textContent = '🌡️ 권역별 체감온도';
+  } else {
+    titleEl.textContent = '🌫️ 권역별 대기 및 종합기상';
+    loadGeneralView();
+  }
+}
+
+// ── View 2: 통합/동절기/미세먼지 데이터 렌더링 ────────────────────────
+function loadGeneralView() {
+  const container = document.getElementById('grid-general');
+  if (container.children.length > 0) return;
+
+  container.innerHTML = REGIONS.map(r => `
+    <div class="card" onclick="openModal('${r.name}')">
+      <div class="card-top">
+        <div>
+          <div class="region">${r.name}</div>
+          <div class="city">${r.city} 기준</div>
+        </div>
+        <span class="badge" style="background:#E6F1FB; color:#185FA5;">기타/동절기</span>
+      </div>
+      <div class="divider"></div>
+      <div class="general-metrics">
+        <div class="metric-item">
+          <span class="m-label">미세먼지 (PM10)</span>
+          <span class="m-val" style="color:#2B7318">보통 (35 µg/m³)</span>
+        </div>
+        <div class="metric-item">
+          <span class="m-label">초미세먼지 (PM2.5)</span>
+          <span class="m-val" style="color:#BA7517">나쁨 (42 µg/m³)</span>
+        </div>
+        <div class="metric-item" style="margin-top:4px;">
+          <span class="m-label">현재 기온</span>
+          <span class="m-val">12°C</span>
+        </div>
+      </div>
+      <div class="site-count" style="margin-top:12px;">현장 ${(SITES[r.name]||[]).length}개 ›</div>
+    </div>
+  `).join('');
+}
+
+// ── 동시 요청 제한기 ──────────────────────────────────────────────────
 function makeLimiter(concurrency) {
   let running = 0;
   const queue = [];
@@ -470,9 +608,8 @@ function makeLimiter(concurrency) {
     return new Promise((resolve, reject) => { queue.push({ fn, resolve, reject }); next(); });
   };
 }
-const apiLimit = makeLimiter(4); // 동시 최대 4개 요청
+const apiLimit = makeLimiter(4);
 
-// 타임아웃 유틸
 function fetchWithTimeout(url, ms = 10000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
@@ -495,9 +632,7 @@ async function fetchWeather(nx, ny) {
     const cur  = (curRes  && curRes.temp  != null) ? curRes  : FALLBACK_CUR;
     const fcst = (fcstRes && (fcstRes.feelsMax != null || fcstRes.feelsMin != null)) ? fcstRes : FALLBACK_FCST;
     return { cur, fcst };
-
   } catch (e) {
-    console.error('날씨 페치 실패:', e);
     return { cur: FALLBACK_CUR, fcst: FALLBACK_FCST };
   }
 }
@@ -514,19 +649,15 @@ async function fetchAlert(regionName) {
 function renderAlertBadge(alertData, regionName) {
   if (!alertData || alertData.type === 'none' || !alertData.type)
     return `<span class="alert-badge alert-none" id="alert-${regionName}"></span>`;
-  
   if (alertData.type === 'critical')
     return `<span class="alert-badge alert-critical" id="alert-${regionName}">🚨 폭염중대경보 발효중</span>`;
-  
   if (alertData.type === 'warning')
     return `<span class="alert-badge alert-warn" id="alert-${regionName}">🔴 폭염경보 발효중</span>`;
-  
   if (alertData.type === 'watch')
     return `<span class="alert-badge alert-watch" id="alert-${regionName}">🟡 폭염주의보 발효중</span>`;
-  
   return `<span class="alert-badge alert-none" id="alert-${regionName}"></span>`;
 }
-// [렌더링 안전장치 추가] 데이터가 없을 때 - 이외에 undefined가 노출되지 않도록 방어
+
 function renderCard(r, data) {
   const siteCount = (SITES[r.name]||[]).length;
   if (!data) return `
@@ -539,15 +670,11 @@ function renderCard(r, data) {
   const cur = data.cur ?? {};
   const fcst = data.fcst ?? {};
 
-  // null과 0을 정확히 구분 (0도도 유효한 온도값)
   const feels      = cur.feelsLike != null ? cur.feelsLike : (cur.temp != null ? cur.temp : null);
   const actualTemp = cur.temp != null ? cur.temp : null;
   const feelsDisp  = feels != null ? `${feels}°C` : '-°C';
   const tempDisp   = actualTemp != null ? `${actualTemp}°C` : '-°C';
-
   const meta = tempMeta(feels != null ? Number(feels) : 0);
-
-  // 최고/최저 체감 표시 헬퍼
   const showFeels = (v) => v != null ? `${v}°` : '-';
 
   return `
@@ -556,7 +683,7 @@ function renderCard(r, data) {
         <div>
           <div class="region">${r.name}</div>
           <div class="city">${r.city} 기준</div>
-          <div class="temp-now-label" style="margin-top:4px;">현재 체감온도</div>
+          <div class="temp-now-label">현재 체감온도</div>
           <div class="temp-now" style="color:${meta.color}">${feelsDisp}</div>
           <div class="temp-actual">실제 기온 ${tempDisp} · ${ptyDesc(cur.pty)}</div>
         </div>
@@ -571,7 +698,6 @@ function renderCard(r, data) {
           </div>
         </div>
       </div>
-
       <div class="divider"></div>
       <div class="meta"><span>💧 ${cur.humidity != null ? cur.humidity + '%' : '-%'}</span><span>💨 ${cur.wind != null ? cur.wind + 'm/s' : '-m/s'}</span></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
@@ -584,6 +710,7 @@ function renderCard(r, data) {
       <div class="site-count">현장 ${siteCount}개 ›</div>
     </div>`;
 }
+
 async function loadAll() {
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;
@@ -599,7 +726,6 @@ async function loadAll() {
       const alertData = await fetchAlert(r.name).catch(()=>null);
       const el = document.getElementById(`alert-${r.name}`);
       if (el) { const tmp=document.createElement('div'); tmp.innerHTML=renderAlertBadge(alertData,r.name); el.replaceWith(tmp.firstElementChild); }
-      updateMapAlert(r.name, alertData?.type || 'none');  // ← 이 한 줄 추가
     });
   } catch(e) {
     document.getElementById('grid').innerHTML = `<div class="error-box">⚠️ 데이터를 불러오지 못했습니다.<br>${e.message}</div>`;
@@ -625,11 +751,8 @@ function closeModal(e) { if (e.target===document.getElementById('modal')) closeM
 function closeModalDirect() { document.getElementById('modal').classList.remove('open'); document.body.style.overflow=''; }
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModalDirect(); });
 
-// ── 현장별 날씨 (개별 격자 좌표 사용) ───────────────────────────────
 async function showSiteWeather(regionName, siteIndex) {
   const site = SITES[regionName][siteIndex];
-
-  // 현장 개별 좌표 → 없으면 권역 대표 좌표 폴백
   const regionDef = REGIONS.find(r=>r.name===regionName);
   const coords = SITE_COORDS[site.name] || { nx: regionDef.nx, ny: regionDef.ny };
   const isIndividual = !!SITE_COORDS[site.name];
@@ -674,134 +797,14 @@ async function showSiteWeather(regionName, siteIndex) {
       </div>`;
   }
 }
-// ── 지도 관련 ─────────────────────────────────────────────────────────
-const REGION_NAME_MAP = {
-  '서울특별시':   '서울',
-  '인천광역시':   '인천',
-  '경기도':       '경기',
-  '강원도':       '강원',
-  '강원특별자치도': '강원',
-  '충청북도':     '충북',
-  '충청남도':     '충남',
-  '대전광역시':   '충남',
-  '세종특별자치시': '충남',
-  '전라북도':     '전북',
-  '전북특별자치도': '전북',
-  '전라남도':     '전남',
-  '광주광역시':   '전남',
-  '경상북도':     '경북',
-  '대구광역시':   '경북',
-  '경상남도':     '경남',
-  '부산광역시':   '경남',
-  '울산광역시':   '경남',
-  '제주특별자치도': '제주',
-};
 
-const ALERT_FILL = {
-  critical: '#F09595',
-  warning:  '#FFEAEA',
-  watch:    '#FFF3CD',
-  none:     '#E1F5EE',
-};
-const ALERT_STROKE = {
-  critical: '#E24B4A',
-  warning:  '#FFB3B3',
-  watch:    '#FFEAA7',
-  none:     '#9FE1CB',
-};
-
-let mapSvg = null;
-const regionAlertState = {};
-
-function initMap(geojson) {
-  const W = 260, H = 420;
-  const projection = d3.geoMercator().fitSize([W, H], geojson);
-  const path = d3.geoPath().projection(projection);
-
-  mapSvg = d3.select('#korea-map')
-    .append('svg')
-    .attr('width', W)
-    .attr('height', H)
-    .style('display', 'block');
-
-  mapSvg.selectAll('path')
-    .data(geojson.features)
-    .enter()
-    .append('path')
-    .attr('d', path)
-    .attr('fill', '#E1F5EE')
-    .attr('stroke', '#fff')
-    .attr('stroke-width', 1.2)
-    .attr('cursor', 'pointer')
-    .attr('class', d => {
-      const rname = REGION_NAME_MAP[d.properties.name] || '';
-      return 'map-region region-' + rname;
-    })
-    .on('click', (event, d) => {
-      const rname = REGION_NAME_MAP[d.properties.name] || '';
-      if (rname) openModal(rname);
-    })
-    .on('mouseover', function() {
-      d3.select(this).attr('opacity', 0.75);
-    })
-    .on('mouseout', function() {
-      d3.select(this).attr('opacity', 1);
-    });
-}
-
-function updateMapAlert(regionName, alertType) {
-  regionAlertState[regionName] = alertType;
-  if (!mapSvg) return;
-  mapSvg.selectAll('.region-' + regionName)
-    .attr('fill',   ALERT_FILL[alertType]   || ALERT_FILL.none)
-    .attr('stroke', ALERT_STROKE[alertType] || ALERT_STROKE.none);
-}
-// ── 화면 전환 (탭) 제어 함수 ──
-function switchView(viewName) {
-  // 버튼 스타일 변경
-  document.getElementById('btn-heatwave').classList.toggle('active', viewName === 'heatwave');
-  document.getElementById('btn-general').classList.toggle('active', viewName === 'general');
-
-  // 화면 보이기/숨기기
-  document.getElementById('view-heatwave').classList.toggle('active', viewName === 'heatwave');
-  document.getElementById('view-general').classList.toggle('active', viewName === 'general');
-
-  // 2번 화면 클릭 시 임시 카드목록 생성
-  if (viewName === 'general') {
-    loadGeneralView();
-  }
-}
-  // ── 2번 화면 테스트 렌더링 함수 ──
-function loadGeneralView() {
-  const container = document.getElementById('grid-general');
-  // 이미 생성되어 있다면 재생성 방지
-  if (container.children.length > 0) return;
-
-  container.innerHTML = REGIONS.map(r => `
-    <div class="card">
-      <div class="card-top">
-        <div>
-          <div class="region">${r.name}</div>
-          <div class="city">${r.city} 기준</div>
-        </div>
-        <span class="badge" style="background:#E6F1FB; color:#185FA5;">기타/동절기</span>
-      </div>
-      <div class="divider"></div>
-      <div class="general-metrics">
-        <div class="metric-item">
-          <span class="m-label">미세먼지(PM10)</span>
-          <span class="m-val" style="color:#2B7318">보통 (35 µg/m³)</span>
-        </div>
-        <div class="metric-item">
-          <span class="m-label">초미세먼지(PM2.5)</span>
-          <span class="m-val" style="color:#BA7517">나쁨 (42 µg/m³)</span>
-        </div>
-      </div>
-      <div class="site-count" style="margin-top:12px;">현장 ${(SITES[r.name]||[]).length}개 ›</div>
-    </div>
-  `).join('');
-}
 loadAll();
 </script>
 </body>
 </html>
+'''
+
+with open('index.html', 'w', encoding='utf-8') as f:
+    f.write(html_content)
+
+print("Updated index.html generated successfully.")

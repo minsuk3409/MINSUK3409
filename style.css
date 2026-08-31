@@ -126,3 +126,60 @@
   }
 }
 #korea-map svg path { transition: fill .3s, opacity .15s; }
+
+/* 모드 전환 탭 버튼 스타일 */
+.mode-toggle-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1.25rem;
+  background: var(--surface);
+  padding: 6px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  width: fit-content;
+}
+
+.mode-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all .2s ease;
+}
+
+.mode-btn:hover {
+  color: var(--text);
+}
+
+.mode-btn.active {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* 화면 숨김 / 표시 제어 */
+.view-content {
+  display: none;
+}
+.view-content.active {
+  display: block;
+}
+
+/* 2번 화면 메트릭 스타일 */
+.general-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.metric-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.m-label { color: var(--muted); }
+.m-val { font-weight: 600; }

@@ -112,12 +112,20 @@ export default async function handler(req, res) {
 
     } else {
       const today = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+      const tomorrowDate = new Date(now);
+      tomorrowDate.setDate(now.getDate() + 1);
+      const tomorrow = `${tomorrowDate.getFullYear()}${pad(tomorrowDate.getMonth() + 1)}${pad(tomorrowDate.getDate())}`;
       const tmx = items.find(i => i.category === 'TMX' && i.fcstDate === today)?.fcstValue;
       const tmn = items.find(i => i.category === 'TMN' && i.fcstDate === today)?.fcstValue;
+      const tomorrowTmx = items.find(i => i.category === 'TMX' && i.fcstDate === tomorrow)?.fcstValue;
+      const tomorrowTmn = items.find(i => i.category === 'TMN' && i.fcstDate === tomorrow)?.fcstValue;
 
       const hourlyT   = items.filter(i => i.category === 'TMP' && i.fcstDate === today);
       const hourlyW   = items.filter(i => i.category === 'WSD' && i.fcstDate === today);
       const hourlyREH = items.filter(i => i.category === 'REH' && i.fcstDate === today);
+      const tomorrowHourlyT   = items.filter(i => i.category === 'TMP' && i.fcstDate === tomorrow);
+      const tomorrowHourlyW   = items.filter(i => i.category === 'WSD' && i.fcstDate === tomorrow);
+      const tomorrowHourlyREH = items.filter(i => i.category === 'REH' && i.fcstDate === tomorrow);
 
       const allFeelsLikeValues = [];
 
@@ -141,11 +149,26 @@ export default async function handler(req, res) {
       const feelsMax = allFeelsLikeValues.length ? Math.round(Math.max(...allFeelsLikeValues) * 10) / 10 : null;
       const feelsMin = allFeelsLikeValues.length ? Math.round(Math.min(...allFeelsLikeValues) * 10) / 10 : null;
 
+      const tomorrowFeelsValues = [];
+      for (const t of tomorrowHourlyT) {
+        const time = t.fcstTime;
+        const tmp = parseFloat(t.fcstValue);
+        const wsd = parseFloat(tomorrowHourlyW.find(w => w.fcstTime === time)?.fcstValue ?? '1');
+        const reh = parseFloat(tomorrowHourlyREH.find(r => r.fcstTime === time)?.fcstValue ?? '60');
+        if (!isNaN(tmp)) tomorrowFeelsValues.push(calcFeelsLike(tmp, isNaN(reh) ? 60 : reh, isNaN(wsd) ? 1 : wsd));
+      }
+      const tomorrowFeelsMax = tomorrowFeelsValues.length ? Math.round(Math.max(...tomorrowFeelsValues) * 10) / 10 : null;
+      const tomorrowFeelsMin = tomorrowFeelsValues.length ? Math.round(Math.min(...tomorrowFeelsValues) * 10) / 10 : null;
+
       return res.status(200).json({
         tempMax:  tmx != null ? parseFloat(tmx) : null,
         tempMin:  tmn != null ? parseFloat(tmn) : null,
         feelsMax,
         feelsMin,
+        tomorrowTempMax: tomorrowTmx != null ? parseFloat(tomorrowTmx) : null,
+        tomorrowTempMin: tomorrowTmn != null ? parseFloat(tomorrowTmn) : null,
+        tomorrowFeelsMax,
+        tomorrowFeelsMin,
         baseDate,
         baseTime,
       });

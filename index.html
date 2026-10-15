@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link rel="icon" href="favicon.png" type="image/png">
-  <title>권역별 체감온도</title>
+  <title>스마트 기상정보 모니터링 시스템</title>
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -85,34 +85,107 @@
     .sw-loading { text-align:center; padding:2rem; color:var(--muted); font-size:14px; }
     .sw-error   { text-align:center; padding:2rem; color:#A32D2D; font-size:14px; }
   </style>
+  <link rel="stylesheet" href="dashboard.css"/>
 </head>
 <body>
-<div class="container">
-  <div id="api-banner">
-    ⚙️ Vercel API URL 입력:
-    <input type="text" id="api-url-input" placeholder="https://your-project.vercel.app" value=""/>
-    <button onclick="saveApiUrl()">저장</button>
-  </div>
-  <header>
-    <div>
-      <h1>🌡️ 권역별 체감온도</h1>
-      <p id="updated">불러오는 중...</p>
-    </div>
-    <button class="btn" id="refreshBtn" onclick="loadAll()">↻ 새로고침</button>
-  </header>
-<div class="page-layout">
-
-  <!-- 우측: 권역 카드 -->
-  <div class="grid" id="grid"></div>
-
+<div id="api-banner" aria-hidden="true">
+  <input type="hidden" id="api-url-input" value=""/>
 </div>
-  <footer>
-    날씨 데이터: <a href="https://www.kma.go.kr" target="_blank">기상청 단기예보 API</a> ·
-    폭염특보: <a href="https://www.kma.go.kr" target="_blank">기상청 특보 API</a> ·
-    API 프록시: <a href="https://vercel.com" target="_blank">Vercel 서버리스</a><br>
-    체감온도 = 기온·풍속·습도 기반 계산 (기상청 공식 적용) · 현장별 기상청 격자 좌표 적용<br>
-    카드를 클릭하면 권역 내 현장 목록을 확인할 수 있습니다
-  </footer>
+
+<div class="monitor-shell">
+  <header class="monitor-topbar">
+    <h1>스마트 기상정보 모니터링 시스템</h1>
+    <div class="topbar-controls">
+      <time id="updated">불러오는 중...</time>
+      <div class="season-tabs" aria-label="계절 모드">
+        <button type="button" class="season-btn active" data-season="normal">상시</button>
+        <button type="button" class="season-btn" data-season="summer">혹서기</button>
+        <button type="button" class="season-btn" data-season="winter">혹한기</button>
+      </div>
+      <div class="forecast-tabs" aria-label="조회 시점">
+        <button type="button" class="forecast-btn active" data-mode="now">현재</button>
+        <button type="button" class="forecast-btn" data-mode="forecast">내일예보</button>
+      </div>
+      <a class="musa-link" href="https://cloud.musa-go.com/" target="_blank" rel="noopener noreferrer">체감온도 모니터링(무사고)</a>
+      <button type="button" class="icon-btn" id="refreshBtn" onclick="loadAll()" title="새로고침" aria-label="새로고침">↻</button>
+      <button type="button" class="icon-btn" id="fullscreenBtn" title="전체화면" aria-label="전체화면">⛶</button>
+    </div>
+  </header>
+
+  <main class="dashboard-grid">
+    <section class="map-column" aria-label="전국 현장 지도">
+      <div class="map-stage">
+        <div class="map-tools">
+          <button type="button" class="map-tool active" id="mapHomeBtn">● 주변</button>
+          <button type="button" class="map-tool" id="mapNationBtn">전국</button>
+        </div>
+        <button type="button" class="map-reset" id="mapResetBtn">현장 선택 시 날씨 표시</button>
+        <div id="korea-map" aria-label="대한민국 현장 분포 지도"></div>
+        <div class="map-loading" id="mapLoading">전국 현장 정보를 불러오는 중입니다.</div>
+      </div>
+
+      <div class="selection-bar">
+        <strong id="selectedSiteLabel">현장을 선택하세요</strong>
+        <label class="site-search">
+          <span>현장명 검색</span>
+          <input id="siteSearchInput" list="siteSearchList" placeholder="현장명을 입력하세요" autocomplete="off"/>
+          <datalist id="siteSearchList"></datalist>
+          <button type="button" id="siteSearchBtn" aria-label="현장 검색">⌕</button>
+        </label>
+      </div>
+
+      <div class="weather-metrics" id="bottomWeatherMetrics" aria-live="polite"></div>
+    </section>
+
+    <section class="overview-column" id="headquartersView" aria-label="본사 현황">
+      <fieldset class="summary-panel">
+        <legend>[전체 현장 현황]</legend>
+        <div class="summary-content">
+          <div class="summary-kpis">
+            <article class="summary-kpi"><span class="kpi-icon">▦</span><div><strong>전체 현장</strong><b id="totalSiteCount">0개</b></div></article>
+            <article class="summary-kpi"><span class="kpi-icon warning">▲</span><div><strong>특보 발효현장</strong><b id="alertSiteCount">0개</b><small>(특보 발효중인 현장)</small></div></article>
+            <article class="summary-kpi"><span class="kpi-icon siren">♨</span><div><strong>기상 위험현장</strong><b id="dangerSiteCount">0개</b><small>(경보 단계)</small></div></article>
+          </div>
+          <div class="alert-summary" id="alertSummaryRows"></div>
+        </div>
+      </fieldset>
+
+      <nav class="region-tabs" id="regionTabs" aria-label="지역별 현장 조회"></nav>
+
+      <fieldset class="division-panel">
+        <legend>[본부별 현황]</legend>
+        <table>
+          <thead><tr><th scope="col">본부</th><th scope="col">전체 현장</th><th scope="col">특보 발효현장</th><th scope="col">기상 위험현장</th></tr></thead>
+          <tbody id="divisionTableBody"></tbody>
+        </table>
+      </fieldset>
+    </section>
+
+    <section class="site-column" id="siteView" aria-label="선택 현장 현황" hidden>
+      <fieldset class="site-alert-panel">
+        <legend>현장 특보 현황</legend>
+        <div class="site-alert-body">
+          <div class="alert-kind-buttons"><span>폭염경보</span><span>호우주의보</span></div>
+          <div id="siteAlertStatus" class="site-alert-status"></div>
+        </div>
+      </fieldset>
+
+      <section class="site-weather-panel">
+        <h2>현장 기상정보</h2>
+        <div class="site-weather-head">
+          <button type="button" id="siteBackBtn">← 전체 현황</button>
+          <strong id="siteNameHeading">현장명</strong>
+          <div class="risk-legend"><span class="risk-red"></span>폭염경보 <span class="risk-orange"></span>폭염주의보 <span class="risk-yellow"></span>관심 <span class="risk-green"></span>정상</div>
+        </div>
+        <div class="weather-metrics site-metrics" id="siteWeatherMetrics"></div>
+      </section>
+
+      <section class="other-sites-panel">
+        <h2>타 현장 기상정보 조회</h2>
+        <nav class="region-tabs" id="siteRegionTabs" aria-label="타 지역 현장 조회"></nav>
+      </section>
+    </section>
+  </main>
 </div>
 
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
@@ -736,7 +809,7 @@ function updateMapAlert(regionName, alertType) {
     .attr('stroke', ALERT_STROKE[alertType] || ALERT_STROKE.none);
 }
 
-loadAll();
 </script>
+<script src="dashboard.js"></script>
 </body>
 </html>
